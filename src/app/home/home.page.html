@@ -1,0 +1,91 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Vinyls</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-card>
+    <img [src]="banners[currentBannerIndex]" alt="Banner Image"/>
+  </ion-card>
+
+  <ion-header>
+    <ion-toolbar>
+      <ion-title>¡Más Vendidos!</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-content>
+    <ion-grid>
+      <ion-row>
+        <ion-col size="12">
+          <div class="vinilos-scroll-container">
+            <ion-card *ngFor="let vinilo of vinilosDestacados" class="vinilo-card" (click)="verDetalles(vinilo)">
+              <img [src]="vinilo.imagen" [alt]="vinilo.titulo">
+              <ion-card-header>
+                <ion-card-title>{{ vinilo.titulo }}</ion-card-title>
+              </ion-card-header>
+            </ion-card>
+          </div>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+  </ion-content>
+
+  <ion-modal [isOpen]="!!viniloSeleccionado">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{ viniloSeleccionado?.titulo }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="cerrarDescripcion()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <img [src]="viniloSeleccionado?.imagen" [alt]="viniloSeleccionado?.titulo">
+        <h2>{{ viniloSeleccionado?.artista }}</h2>
+
+        <ion-segment [(ngModel)]="mostrarDescripcionDetalle">
+          <ion-segment-button value="descripcion">
+            Descripción
+          </ion-segment-button>
+          <ion-segment-button value="tracklist">
+            Tracklist
+          </ion-segment-button>
+        </ion-segment>
+
+        <div *ngIf="mostrarDescripcionDetalle === 'descripcion'">
+          <div *ngFor="let parrafo of viniloSeleccionado?.descripcion">
+            <p>{{ parrafo }}</p>
+          </div>
+        </div>
+
+        <div *ngIf="mostrarDescripcionDetalle === 'tracklist'">
+          <h3>Tracklist</h3>
+          <ol>
+            <li *ngFor="let cancion of viniloSeleccionado?.tracklist">
+              {{ cancion }}
+            </li>
+          </ol>
+        </div>
+
+        <ion-text color="primary">
+          <h3>Precio: {{ viniloSeleccionado?.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</h3>
+        </ion-text>
+        <ion-text color="medium">
+          <p>Stock disponible: {{ viniloSeleccionado?.stock ?? 'N/A' }}</p>
+        </ion-text>
+        <ion-button expand="block" (click)="agregarAlCarrito()" [disabled]="viniloSeleccionado?.stock === 0">
+          Agregar al carrito
+        </ion-button>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-title>© 2024 Vinyl</ion-title>
+  </ion-toolbar>
+</ion-footer>

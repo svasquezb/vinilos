@@ -1,0 +1,127 @@
+// Variables (manteniendo las existentes)
+$primary-color: #8B4513; // Saddle Brown
+$secondary-color: #DEB887; // Burlywood
+$accent-color: #CD853F; // Peru
+$background-color: #FFF8DC; // Cornsilk
+$card-background: #FAEBD7; // Antique White
+$text-color: #3E2723; // Dark Brown
+$light-text-color: #FFF8DC; // Cornsilk
+
+@mixin vintage-border {
+  border: 2px solid $primary-color;
+  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
+}
+
+ion-content {
+  --background: none;
+  background-image: url('/assets/img/asd.jpg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+  font-family: 'Georgia', serif;
+
+  // Eliminado el overlay difuminado
+  &::before {
+    content: none;
+  }
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 400px;
+  height: auto;
+  min-height: 400px;
+  padding: 30px;
+  background-color: rgba($card-background, 0.9);
+  @include vintage-border;
+  z-index: 1;
+  overflow-y: auto;
+}
+
+h2 {
+  color: $primary-color;
+  font-family: 'Playfair Display', serif;
+  font-size: 2.2em;
+  margin-bottom: 30px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+#login-form {
+  width: 100%;
+  max-width: 300px;
+}
+
+.input-box {
+  position: relative;
+  margin-bottom: 25px;
+}
+
+ion-input {
+  width: 100%;
+  padding: 15px 10px 10px;
+  font-size: 16px;
+  color: $text-color;
+  border: 1px solid $primary-color;
+  background-color: $light-text-color;
+  outline: none;
+  transition: border-color 0.3s;
+
+  &:focus {
+    border-color: $accent-color;
+  }
+}
+
+label {
+  position: absolute;
+  top: -20px;
+  left: 10px;
+  padding: 0 5px;
+  font-size: 14px;
+  color: $primary-color;
+  background-color: $card-background;
+  z-index: 1;
+}
+
+a {
+  display: block;
+  text-align: right;
+  color: $accent-color;
+  text-decoration: none;
+  margin-bottom: 20px;
+  font-style: italic;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+ion-button {
+  --background: #{$primary-color};
+  --color: #{$light-text-color};
+  --border-radius: 0;
+  @include vintage-border;
+  font-family: 'Georgia', serif;
+  margin-top: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: transform 0.2s;
+
+  &:hover {
+    --background: #{$accent-color};
+    transform: translateY(-2px);
+  }
+}
+
+ion-content {
+  --overflow: hidden;
+}

@@ -1,0 +1,132 @@
+// Variables de colores
+$primary-color: #8B4513; // Saddle Brown
+$secondary-color: #DEB887; // Burlywood
+$accent-color: #CD853F; // Peru
+$background-color: #FFF8DC; // Cornsilk
+$card-background: #FAEBD7; // Antique White
+$text-color: #3E2723; // Dark Brown
+$light-text-color: #FFF8DC; // Cornsilk
+
+@mixin vintage-border {
+  border: 2px solid $primary-color;
+  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
+}
+
+// Global Styles
+ion-content {
+  --background: #{$background-color};
+  font-family: 'Georgia', serif;
+}
+
+ion-header {
+  ion-toolbar {
+    --background: #{$primary-color};
+  }
+
+  ion-title {
+    text-align: center;
+    font-size: 32px;
+    font-family: 'Playfair Display', serif;
+    color: $light-text-color;
+  }
+}
+
+// Card Styles for Vinilo Form
+ion-card {
+  @include vintage-border;
+  background-color: $card-background;
+  margin: 16px;
+
+  ion-card-header {
+    background-color: $primary-color;
+    color: $light-text-color;
+
+    ion-card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5em;
+    }
+  }
+
+  ion-card-content {
+    padding: 16px;
+
+    ion-item {
+      --background: transparent;
+      --border-color: #{$primary-color};
+      --color: #{$text-color};
+      margin-bottom: 8px;
+
+      ion-label {
+        color: $accent-color;
+      }
+
+      ion-input, ion-textarea {
+        --color: #{$text-color};
+        --placeholder-color: #{$secondary-color};
+      }
+    }
+
+    ion-button {
+      --background: #{$accent-color};
+      --color: #{$light-text-color};
+      margin-top: 16px;
+      @include vintage-border;
+      
+      &[color="danger"] {
+        --background: #B22222; // FireBrick
+      }
+    }
+  }
+}
+
+// List Styles
+ion-list {
+  background-color: transparent;
+
+  ion-item-sliding {
+    background-color: $card-background;
+    margin-bottom: 8px;
+    @include vintage-border;
+
+    ion-item {
+      --background: transparent;
+      --border-color: transparent;
+
+      ion-thumbnail {
+        --size: 80px;
+        --border-radius: 0;
+        @include vintage-border;
+      }
+
+      ion-label {
+        h2 {
+          font-family: 'Playfair Display', serif;
+          color: $primary-color;
+          font-size: 1.2em;
+          font-weight: bold;
+        }
+
+        p {
+          color: $text-color;
+          font-size: 0.9em;
+          margin-top: 4px;
+
+          strong {
+            color: $accent-color;
+          }
+        }
+      }
+    }
+
+    ion-item-options {
+      ion-item-option {
+        &[color="primary"] {
+          --ion-color-base: #{$accent-color};
+        }
+        &[color="danger"] {
+          --ion-color-base: #B22222; // FireBrick
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,75 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Gestión de Vinilos</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>{{ modoEdicion ? 'Editar Vinilo' : 'Crear Nuevo Vinilo' }}</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-item>
+        <ion-label position="floating">Título</ion-label>
+        <ion-input [ngModel]="getViniloActual().titulo" (ngModelChange)="actualizarCampo('titulo', $event)"></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="floating">Artista</ion-label>
+        <ion-input [ngModel]="getViniloActual().artista" (ngModelChange)="actualizarCampo('artista', $event)"></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="floating">Imagen URL</ion-label>
+        <ion-input [ngModel]="getViniloActual().imagen" (ngModelChange)="actualizarCampo('imagen', $event)"></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="floating">Stock</ion-label>
+        <ion-input type="number" [ngModel]="getViniloActual().stock" (ngModelChange)="actualizarCampo('stock', $event)"></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="floating">Precio (CLP)</ion-label>
+        <ion-input type="number" [ngModel]="getViniloActual().precio" (ngModelChange)="actualizarCampo('precio', $event)"></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-label position="floating">Descripción</ion-label>
+        <ion-textarea [ngModel]="getViniloActual().descripcion.join('\n')" (ngModelChange)="actualizarCampo('descripcion', $event.split('\n'))"></ion-textarea>
+      </ion-item>
+      <ion-item>
+        <ion-label position="floating">Tracklist</ion-label>
+        <ion-textarea [ngModel]="getViniloActual().tracklist.join('\n')" (ngModelChange)="actualizarCampo('tracklist', $event.split('\n'))"></ion-textarea>
+      </ion-item>
+
+      <ion-button expand="block" (click)="modoEdicion ? actualizarVinilo() : crearVinilo()">
+        {{ modoEdicion ? 'Actualizar' : 'Crear' }}
+      </ion-button>
+      <ion-button *ngIf="modoEdicion" expand="block" (click)="cancelarEdicion()" color="danger">
+        Cancelar Edición
+      </ion-button>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-list>
+    <ion-item-sliding *ngFor="let vinilo of vinilos">
+      <ion-item>
+        <ion-thumbnail slot="start">
+          <img [src]="vinilo.imagen" />
+        </ion-thumbnail>
+        <ion-label>
+          <h2>{{ vinilo.titulo }}</h2>
+          <p>{{ vinilo.artista }}</p>
+          <p>Stock: {{ vinilo.stock }} | Precio: {{ vinilo.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+          <p><strong>Descripción:</strong> {{ vinilo.descripcion.join(' ') }}</p>
+          <p><strong>Tracklist:</strong> {{ vinilo.tracklist.join(', ') }}</p>
+        </ion-label>
+      </ion-item>
+      <ion-item-options side="end">
+        <ion-item-option (click)="editarVinilo(vinilo)" color="primary">
+          <ion-icon name="create" slot="icon-only"></ion-icon>
+        </ion-item-option>
+        <ion-item-option (click)="eliminarVinilo(vinilo)" color="danger">
+          <ion-icon name="trash" slot="icon-only"></ion-icon>
+        </ion-item-option>
+      </ion-item-options>
+    </ion-item-sliding>
+  </ion-list>
+</ion-content>

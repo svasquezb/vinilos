@@ -1,0 +1,148 @@
+// Variables de colores
+$primary-color: #8B4513; // Saddle Brown
+$secondary-color: #DEB887; // Burlywood
+$accent-color: #CD853F; // Peru
+$background-color: #FFF8DC; // Cornsilk
+$card-background: #FAEBD7; // Antique White
+$text-color: #3E2723; // Dark Brown
+$light-text-color: #FFF8DC; // Cornsilk
+
+@mixin vintage-border {
+  border: 2px solid $primary-color;
+  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
+}
+
+// Font global
+ion-app {
+  font-family: 'Georgia', serif;
+}
+
+ion-content {
+  --background: #{$background-color};
+}
+
+// Menu
+ion-menu {
+  --background: #{$background-color};
+
+  ion-toolbar {
+    --background: #{$primary-color};
+    --color: #{$light-text-color};
+  }
+
+  ion-content {
+    --padding-top: 0; // Cambiado para que el logo esté arriba
+    --padding-bottom: 16px;
+  }
+
+  .logo-container {
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: transparent;
+    margin-bottom: 20px;
+
+    .menu-logo {
+      width: 100px;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      opacity: 0.9;
+      transition: opacity 0.3s ease;
+      margin-bottom: 10px;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+
+    .logo-title {
+      color: $text-color;
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      margin-top: 8px;
+      font-weight: bold;
+    }
+  }
+
+  ion-list {
+    background-color: transparent;
+  }
+
+  ion-item {
+    --background: transparent;
+    --color: #{$text-color};
+    --border-color: #{$accent-color};
+    
+    &:hover {
+      --background: #{$secondary-color};
+    }
+
+    ion-icon {
+      color: $primary-color;
+    }
+  }
+}
+
+// Header Styles
+ion-header {
+  ion-toolbar {
+    --background: #{$primary-color};
+    --color: #{$light-text-color};
+  }
+
+  ion-title {
+    text-align: center;
+    font-size: 24px;
+    font-family: 'Playfair Display', serif;
+  }
+
+  ion-menu-button {
+    color: $light-text-color;
+  }
+}
+
+// Content Styles
+ion-router-outlet {
+  background-color: $background-color;
+}
+
+// Additional styles for other components
+ion-card {
+  @include vintage-border;
+  background-color: $card-background;
+  margin: 16px;
+
+  ion-card-header {
+    background-color: $primary-color;
+    color: $light-text-color;
+  }
+
+  ion-card-title {
+    font-family: 'Playfair Display', serif;
+  }
+
+  ion-card-content {
+    color: $text-color;
+  }
+}
+
+ion-button {
+  --background: #{$accent-color};
+  --color: #{$light-text-color};
+  --border-radius: 0;
+  @include vintage-border;
+  font-family: 'Georgia', serif;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  ion-title {
+    font-size: 24px;
+  }
+
+  ion-menu {
+    --width: 250px;
+  }
+}

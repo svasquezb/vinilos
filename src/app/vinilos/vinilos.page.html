@@ -1,0 +1,72 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Vinilos</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-searchbar class="custom" placeholder="Buscar" (ionInput)="buscarVinilos($event)"></ion-searchbar>
+
+  <ion-grid>
+    <ion-row>
+      <ion-col size="6" size-md="4" size-lg="3" *ngFor="let vinilo of vinilosFiltrados">
+        <ion-card (click)="mostrarDescripcion(vinilo)">
+          <img [src]="vinilo.imagen" [alt]="vinilo.titulo">
+          <ion-card-header>
+            <ion-card-title>{{ vinilo.titulo }}</ion-card-title>
+            <ion-card-subtitle>{{ vinilo.artista }}</ion-card-subtitle>
+          </ion-card-header>
+        </ion-card>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+
+  <ion-modal [isOpen]="!!viniloSeleccionado">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{ viniloSeleccionado?.titulo }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="cerrarDescripcion()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <img [src]="viniloSeleccionado?.imagen" [alt]="viniloSeleccionado?.titulo">
+        <h2>{{ viniloSeleccionado?.artista }}</h2>
+
+        <ion-segment [(ngModel)]="mostrarDescripcionDetalle">
+          <ion-segment-button value="descripcion">
+            Descripción
+          </ion-segment-button>
+          <ion-segment-button value="tracklist">
+            Tracklist
+          </ion-segment-button>
+        </ion-segment>
+
+        <div *ngIf="mostrarDescripcionDetalle === 'descripcion'">
+          <p [innerHTML]="getDescripcionTexto(viniloSeleccionado)"></p>
+        </div>
+
+        <div *ngIf="mostrarDescripcionDetalle === 'tracklist'">
+          <h3>Tracklist</h3>
+          <ol>
+            <li *ngFor="let cancion of viniloSeleccionado?.tracklist">
+              {{ cancion }}
+            </li>
+          </ol>
+        </div>
+
+        <ion-text color="primary">
+          <h3>Precio: {{ viniloSeleccionado?.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</h3>
+        </ion-text>
+        <ion-text color="medium">
+          <p>Stock disponible: {{ viniloSeleccionado?.stock ?? 'N/A' }}</p>
+        </ion-text>
+        <ion-button expand="block" (click)="agregarAlCarrito()" [disabled]="viniloSeleccionado?.stock === 0">
+          Agregar al carrito
+        </ion-button>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+</ion-content>

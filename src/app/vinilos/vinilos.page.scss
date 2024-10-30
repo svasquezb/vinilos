@@ -1,0 +1,205 @@
+// Variables de colores
+$primary-color: #8B4513; // Saddle Brown
+$secondary-color: #DEB887; // Burlywood
+$accent-color: #CD853F; // Peru
+$background-color: #FFF8DC; // Cornsilk
+$card-background: #FAEBD7; // Antique White
+$text-color: #3E2723; // Dark Brown
+$light-text-color: #FFF8DC; // Cornsilk
+
+@mixin vintage-border {
+  border: 2px solid $primary-color;
+  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
+}
+
+// Global Styles
+ion-content {
+  --background: #{$background-color};
+  font-family: 'Georgia', serif;
+}
+
+ion-header {
+  ion-toolbar {
+    --background: #{$primary-color};
+  }
+
+  ion-title {
+    text-align: center;
+    font-size: 32px;
+    font-family: 'Playfair Display', serif;
+    color: $light-text-color;
+  }
+}
+
+// Searchbar estilo
+ion-searchbar.custom {
+  --background: #{$card-background};
+  --color: #{$text-color};
+  --placeholder-color: #{$accent-color};
+  --icon-color: #{$primary-color};
+  --border-radius: 0;
+  @include vintage-border;
+  margin: 16px auto;
+  max-width: 600px;
+  width: calc(100% - 32px);
+  
+  .searchbar-input {
+    padding-inline-start: 44px !important;
+    padding-inline-end: 44px !important;
+  }
+
+  .searchbar-search-icon {
+    left: 12px;
+  }
+
+  .searchbar-clear-button {
+    right: 12px;
+  }
+}
+
+ion-grid {
+  padding: 16px;
+}
+
+// Estilo de las cards
+ion-card {
+  margin: 8px;
+  cursor: pointer;
+  @include vintage-border;
+  background-color: $card-background;
+  border-radius: 0;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+  }
+
+  img {
+    max-height: 220px;
+    object-fit: cover;
+    width: 100%;
+    filter: sepia(20%);
+  }
+
+  ion-card-header {
+    padding: 16px;
+  }
+
+  ion-card-title {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: $text-color;
+    font-family: 'Playfair Display', serif;
+    margin-bottom: 8px;
+  }
+
+  ion-card-subtitle {
+    font-size: 1em;
+    color: $accent-color;
+    font-style: italic;
+  }
+}
+
+// Modal Styles
+ion-modal {
+  --background: #{$background-color};
+  
+  ion-header ion-toolbar {
+    --background: #{$primary-color};
+
+    ion-title {
+      color: $light-text-color;
+    }
+
+    ion-button {
+      --color: #{$light-text-color};
+    }
+  }
+  
+  ion-content {
+    --padding-top: 24px;
+    --padding-bottom: 24px;
+    --padding-start: 24px;
+    --padding-end: 24px;
+  }
+  
+  img {
+    @include vintage-border;
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    margin-bottom: 20px;
+  }
+  
+  h2 {
+    color: $primary-color;
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  
+  ion-segment {
+    margin-top: 24px;
+    margin-bottom: 24px;
+    --background: #{$card-background};
+    
+    ion-segment-button {
+      --color: #{$text-color};
+      --color-checked: #{$light-text-color};
+      --background-checked: #{$accent-color};
+      font-family: 'Georgia', serif;
+    }
+  }
+  
+  p {
+    color: $text-color;
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    color: $primary-color;
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    margin-top: 24px;
+    margin-bottom: 16px;
+  }
+
+  ol {
+    padding-left: 24px;
+    color: $text-color;
+
+    li {
+      margin-bottom: 8px;
+    }
+  }
+  
+  ion-text {
+    h3 {
+      color: $accent-color;
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 24px;
+    }
+
+    p {
+      color: $text-color;
+      font-style: italic;
+    }
+  }
+  
+  ion-button {
+    margin-top: 24px;
+    --background: #{$accent-color};
+    --color: #{$light-text-color};
+    --border-radius: 0;
+    @include vintage-border;
+    font-family: 'Georgia', serif;
+
+    &[disabled] {
+      opacity: 0.5;
+    }
+  }
+}

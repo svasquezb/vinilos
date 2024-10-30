@@ -1,0 +1,110 @@
+// Variables
+$primary-color: #8B4513; // Saddle Brown
+$secondary-color: #DEB887; // Burlywood
+$accent-color: #CD853F; // Peru
+$background-color: #FFF8DC; // Cornsilk
+$card-background: #FAEBD7; // Antique White
+$text-color: #3E2723; // Dark Brown
+$light-text-color: #FFF8DC; // Cornsilk
+
+// Mixins
+@mixin vintage-border {
+  border: 2px solid $primary-color;
+  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
+}
+
+ion-content {
+  --background: #{$background-color};
+  font-family: 'Georgia', serif;
+}
+
+ion-header ion-toolbar {
+  --background: #{$primary-color};
+  
+  ion-title {
+    color: $light-text-color;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+}
+
+ion-list {
+  background: transparent;
+  padding: 16px;
+}
+
+ion-item {
+  --background: #{$card-background};
+  margin-bottom: 16px;
+  @include vintage-border;
+
+  ion-thumbnail {
+    --size: 80px;
+    --border-radius: 0;
+    @include vintage-border;
+    overflow: hidden;
+
+    img {
+      object-fit: cover;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  ion-label {
+    h2 {
+      font-family: 'Playfair Display', serif;
+      color: $primary-color;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    p {
+      color: $text-color;
+      font-style: italic;
+    }
+  }
+
+  ion-button {
+    --color: #{$primary-color};
+    --border-color: #{$primary-color};
+    font-family: 'Georgia', serif;
+  }
+}
+
+ion-item:last-of-type {
+  --background: transparent;
+  --border-color: transparent;
+  box-shadow: none;
+
+  ion-label, ion-note {
+    color: $primary-color;
+    font-weight: bold;
+    font-size: 1.2em;
+  }
+}
+
+ion-button[color="danger"] {
+  --background: #{$primary-color};
+  --color: #{$light-text-color};
+  margin: 16px;
+  @include vintage-border;
+  font-family: 'Georgia', serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  &:hover {
+    --background: #{$accent-color};
+  }
+}
+
+.empty-cart {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-style: italic;
+  color: $text-color;
+}

@@ -1,0 +1,70 @@
+<ion-app>
+  <ion-menu contentId="main-content">
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Menu</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <!-- Logo and Title at the top -->
+      <div class="logo-container">
+        <img src="assets/img/icon.png" alt="Logo" class="menu-logo">
+        <span class="logo-title">Vinyls</span>
+      </div>
+
+      <ion-list>
+        <ion-item *ngIf="isLoggedIn">
+          <ion-label>
+            Bienvenido, {{ userName }}
+          </ion-label>
+        </ion-item>
+        <ion-item *ngIf="isLoggedIn" (click)="logout()">
+          <ion-icon name="log-out-outline" slot="start"></ion-icon>
+          <ion-label>Cerrar sesión</ion-label>
+        </ion-item>
+
+        <ion-item routerLink="/home" routerDirection="root" (click)="closeMenu()">
+          <ion-icon name="home-outline" slot="start"></ion-icon>
+          <ion-label>Inicio</ion-label>
+        </ion-item>
+        <ion-item routerLink="/vinilos" routerDirection="root" (click)="closeMenu()">
+          <ion-icon name="disc-outline" slot="start"></ion-icon>
+          <ion-label>Vinilos</ion-label>
+        </ion-item>
+        <ion-item routerLink="/cart" routerDirection="root" (click)="closeMenu()">
+          <ion-icon name="cart-outline" slot="start"></ion-icon>
+          <ion-label>Carrito</ion-label>
+        </ion-item>
+
+        <!-- Opción para admin -->
+        <ion-item *ngIf="isAdmin" routerLink="/vinilo-crud" routerDirection="root" (click)="closeMenu()">
+          <ion-icon name="create-outline" slot="start"></ion-icon>
+          <ion-label>Gestionar Vinilos</ion-label>
+        </ion-item>
+        <!-- Opción para user y admin -->
+        <ion-item *ngIf="isLoggedIn && (isAdmin || isUser)" routerLink="/profile-edit" (click)="closeMenu()">
+          <ion-icon name="person-outline" slot="start"></ion-icon>
+          <ion-label>Editar Perfil</ion-label>
+        </ion-item>
+        <!-- Opción para no autenticados -->
+        <ion-item *ngIf="!isLoggedIn" routerLink="/login" routerDirection="root" (click)="closeMenu()">
+          <ion-icon name="log-in-outline" slot="start"></ion-icon>
+          <ion-label>Ingresar</ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ion-menu>
+
+  <ion-header>
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-menu-button></ion-menu-button>
+      </ion-buttons>
+      <ion-title>Vinyls</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-content>
+    <ion-router-outlet id="main-content"></ion-router-outlet>
+  </ion-content>
+</ion-app>

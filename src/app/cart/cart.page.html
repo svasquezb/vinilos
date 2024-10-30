@@ -1,0 +1,37 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Carrito</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-list>
+    <ion-item *ngFor="let vinyl of cart">
+      <ion-thumbnail slot="start">
+        <img [src]="vinyl.imagen" />
+      </ion-thumbnail>
+      <ion-label>
+        <h2>{{ vinyl.titulo }}</h2>
+        <p>{{ vinyl.artista }}</p>
+        <p>Cantidad: {{ vinyl.quantity }}</p>
+        <p>Precio: {{ vinyl.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+      </ion-label>
+      <ion-button fill="outline" slot="end" (click)="removeItem(vinyl.id)">
+        Eliminar
+      </ion-button>
+    </ion-item>
+  </ion-list>
+
+  <ion-item *ngIf="cart.length > 0">
+    <ion-label>Total:</ion-label>
+    <ion-note slot="end">{{ getFormattedTotal() }}</ion-note>
+  </ion-item>
+
+  <ion-button expand="block" color="danger" (click)="clearCart()" *ngIf="cart.length > 0">
+    Vaciar Carrito
+  </ion-button>
+
+  <ion-item *ngIf="cart.length === 0">
+    <ion-label>El carrito está vacío</ion-label>
+  </ion-item>
+</ion-content>
