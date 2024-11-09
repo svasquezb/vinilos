@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-import { NavController, ToastController } from '@ionic/angular';
-import { AuthService } from '../services/auth.service';
+import { NavController, ToastController, LoadingController } from '@ionic/angular';
+import { DatabaseService } from '../services/database.service';
 
 @Component({
   selector: 'app-login',
@@ -11,33 +11,42 @@ export class LoginPage {
   email: string = '';
   password: string = '';
 
-  users: { email: string, password: string, role: string }[] = [
-    { email: 'admin', password: '1234', role: 'admin' },
-    { email: 'user', password: '1234', role: 'user' }
-  ];
-
   constructor(
     private navCtrl: NavController,
     private toastController: ToastController,
-    private authService: AuthService
+    private loadingController: LoadingController,
+    private databaseService: DatabaseService
   ) {}
 
   async login() {
-    const user = this.users.find(user => 
-      user.email === this.email && user.password === this.password
-    );
-
-    if (user) {
-      this.authService.login(user.email, user.role);
-      await this.presentToast('Inicio de sesión exitoso', 'success');
-      this.navCtrl.navigateRoot('/home');
-    } else {
-      await this.presentToast('Correo electrónico o contraseña incorrectos', 'danger');
+    if (!this.email || !this.password) {
+      await this.presentToast('Por favor, ingrese email y contraseña', 'warning');
+      return;
     }
-  }
 
-  goToRegister() {
-    this.navCtrl.navigateForward('/register');
+    const loading = await this.loadingController.create({
+      message: 'Iniciando sesión...'
+    });
+    await loading.present();
+
+    try {
+      const result = await this.databaseService.loginUser(this.email, this.password).toPromise();
+      
+      if (result.success) {
+        // Guardar datos del usuario en localStorage
+        localStorage.setItem('currentUser', JSON.stringify(result.user));
+        
+        await this.presentToast('Bienvenido!', 'success');
+        this.navCtrl.navigateRoot('/home');
+      } else {
+        await this.presentToast('Credenciales inválidas', 'danger');
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      await this.presentToast('Error al iniciar sesión', 'danger');
+    } finally {
+      loading.dismiss();
+    }
   }
 
   async presentToast(message: string, color: string) {
@@ -48,5 +57,9 @@ export class LoginPage {
       color: color
     });
     toast.present();
+  }
+
+  goToRegister() {
+    this.navCtrl.navigateForward('/register');
   }
 }

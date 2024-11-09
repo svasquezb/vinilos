@@ -8,12 +8,59 @@ import { User } from '../models/user.model';
 import { Vinyl } from '../models/vinilos.model';
 import { Order } from '../models/order.model';
 
+interface SQLiteResponse {
+  values?: any[];
+  changes?: {
+    changes: number;
+    lastId: number;
+  };
+}
+
+interface UserDBRecord {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phoneNumber: string | null;
+  role: string;
+  createdAt: string;
+}
+
+interface VinylDBRecord {
+  id: number;
+  titulo: string;
+  artista: string;
+  imagen: string;
+  descripcion: string;
+  tracklist: string;
+  stock: number;
+  precio: number;
+  IsAvailable: number;
+}
+
+interface OrderDBRecord {
+  id: number;
+  userId: number;
+  createdAt: string;
+  status: string;
+  totalAmount: number;
+  orderDetails: string;
+}
+
+interface RegisterUserData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class DatabaseService {
   private database!: SQLiteDBConnection;
-  private dbReady: BehaviorSubject<boolean> = new BehaviorSubject(false);
+  private dbReady = new BehaviorSubject<boolean>(false);
   private sqlite: SQLiteConnection;
 
   constructor(
@@ -26,55 +73,74 @@ export class DatabaseService {
     });
   }
 
+  public getDatabaseState(): Observable<boolean> {
+    return this.dbReady.asObservable();
+  }
 
-  private async initializeDatabase() {
+  private async initializeDatabase(): Promise<void> {
     const dbName = 'vinilos.db';
     try {
+      await this.sqlite.closeAllConnections();
+      
       const retCC = await this.sqlite.checkConnectionsConsistency();
       const isConn = (await this.sqlite.isConnection(dbName, false)).result;
       let db: SQLiteDBConnection;
+      
       if (retCC.result && isConn) {
         db = await this.sqlite.retrieveConnection(dbName, false);
       } else {
         db = await this.sqlite.createConnection(dbName, false, "no-encryption", 1, false);
       }
+      
       await db.open();
       this.database = db;
       await this.createTables();
-      await this.insertSeedData().toPromise(); // Llamamos a insertSeedData aquí
+      await this.insertSeedData().toPromise();
       this.dbReady.next(true);
+      console.log('Database initialized successfully');
     } catch (error) {
-      console.error('Error initializing database', error);
+      console.error('Error initializing database:', error);
       await this.presentAlert('Error', 'Failed to initialize the database. Please try again.');
+      this.dbReady.next(false);
     }
   }
 
-  isDatabaseReady(): Observable<boolean> {
-    return this.dbReady.asObservable();
-  }
+  private async createTables(): Promise<void> {
+    try {
+      const dropTables = [
+        'DROP TABLE IF EXISTS Orders;',
+        'DROP TABLE IF EXISTS Vinyls;',
+        'DROP TABLE IF EXISTS Users;'
+      ];
 
-  private async createTables() {
-    const tables = [this.tableUsers, this.tableVinyls, this.tableOrders];
-    for (const table of tables) {
-      await this.database.run(table);
+      for (const sql of dropTables) {
+        await this.database.execute(sql);
+      }
+
+      await this.database.execute(this.tableUsers);
+      await this.database.execute(this.tableVinyls);
+      await this.database.execute(this.tableOrders);
+
+      console.log('Tables created successfully');
+    } catch (error) {
+      console.error('Error creating tables:', error);
+      throw error;
     }
   }
 
-  // Define your table creation SQL strings here
-  private tableUsers: string = `
+  private readonly tableUsers: string = `
     CREATE TABLE IF NOT EXISTS Users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
+      firstName TEXT NOT NULL,
+      lastName TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('user', 'admin')),
-      name TEXT NOT NULL,
-      email TEXT UNIQUE,
       phoneNumber TEXT,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      lastLogin DATETIME
+      role TEXT DEFAULT 'user',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );`;
 
-  private tableVinyls: string = `
+  private readonly tableVinyls: string = `
     CREATE TABLE IF NOT EXISTS Vinyls (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       titulo TEXT NOT NULL,
@@ -87,7 +153,7 @@ export class DatabaseService {
       IsAvailable BOOLEAN DEFAULT 1
     );`;
 
-  private tableOrders: string = `
+  private readonly tableOrders: string = `
     CREATE TABLE IF NOT EXISTS Orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       userId INTEGER,
@@ -98,7 +164,7 @@ export class DatabaseService {
       FOREIGN KEY (userId) REFERENCES Users(id)
     );`;
 
-  async presentAlert(titulo: string, msj: string) {
+  async presentAlert(titulo: string, msj: string): Promise<void> {
     const alert = await this.alertController.create({
       header: titulo,
       message: msj,
@@ -107,83 +173,163 @@ export class DatabaseService {
     await alert.present();
   }
 
-  private executeSQL(query: string, params: any[] = []): Observable<any> {
-    return this.isDatabaseReady().pipe(
-      switchMap(ready => {
-        if (ready) {
-          return from(this.database.query(query, params));
-        } else {
-          throw new Error('Database not ready');
-        }
-      }),
+  private executeSQL(query: string, params: any[] = []): Observable<SQLiteResponse> {
+    if (!this.database) {
+      console.error('Database connection not established');
+      return of({ values: [], changes: { changes: 0, lastId: -1 } });
+    }
+
+    return from(this.database.query(query, params)).pipe(
+      tap(result => console.log('SQL Query Result:', result)),
       catchError(error => {
-        console.error('SQL execution error', error);
-        return from([]);
+        console.error('SQL execution error:', error);
+        throw error;
       })
     );
   }
 
-  // User methods
-  createUser(user: User): Observable<number> {
+  registerUser(userData: RegisterUserData): Observable<any> {
+    console.log('Attempting to register user:', userData);
+    return this.getDatabaseState().pipe(
+      switchMap(ready => {
+        if (!ready) {
+          throw new Error('Database not ready');
+        }
+
+        return this.executeSQL(
+          'INSERT INTO Users (firstName, lastName, email, password, role) VALUES (?, ?, ?, ?, ?)',
+          [userData.firstName, userData.lastName, userData.email, userData.password, 'user']
+        );
+      }),
+      map(result => {
+        console.log('Registration result:', result);
+        if (result && result.changes && result.changes.lastId) {
+          return {
+            success: true,
+            userId: result.changes.lastId
+          };
+        }
+        throw new Error('Failed to insert user');
+      }),
+      catchError(error => {
+        console.error('Error in registerUser:', error);
+        if (error.message && error.message.includes('UNIQUE constraint failed')) {
+          return of({
+            success: false,
+            error: 'Este correo electrónico ya está registrado'
+          });
+        }
+        return of({
+          success: false,
+          error: error.message || 'Error desconocido en el registro'
+        });
+      })
+    );
+  }
+
+  loginUser(email: string, password: string): Observable<any> {
+    console.log('Attempting login for:', email);
     return this.executeSQL(
-      'INSERT INTO Users (username, password, role, name, email, phoneNumber) VALUES (?, ?, ?, ?, ?, ?)',
-      [user.username, user.password, user.role, user.name, user.email, user.phoneNumber]
+      'SELECT * FROM Users WHERE email = ? AND password = ?',
+      [email, password]
     ).pipe(
-      map(data => data.changes?.lastId || -1)
+      map(data => {
+        console.log('Login query result:', data);
+        if (data.values && data.values.length > 0) {
+          return {
+            success: true,
+            user: data.values[0] as UserDBRecord
+          };
+        }
+        return {
+          success: false,
+          error: 'Credenciales inválidas'
+        };
+      }),
+      catchError(error => {
+        console.error('Error in login:', error);
+        return of({
+          success: false,
+          error: error.message || 'Error en el inicio de sesión'
+        });
+      })
     );
   }
 
-  getUsers(): Observable<User[]> {
-    return this.executeSQL('SELECT * FROM Users').pipe(
-      map(data => data.values as User[])
+  checkEmailExists(email: string): Observable<boolean> {
+    return this.executeSQL(
+      'SELECT COUNT(*) as count FROM Users WHERE email = ?',
+      [email]
+    ).pipe(
+      map(result => {
+        const count = result.values?.[0]?.count ?? 0;
+        console.log('Email check result:', { email, count });
+        return count > 0;
+      }),
+      catchError(error => {
+        console.error('Error checking email:', error);
+        return of(false);
+      })
     );
   }
 
-  // Vinyl methods
   createVinyl(vinyl: Vinyl): Observable<number> {
     return this.executeSQL(
       'INSERT INTO Vinyls (titulo, artista, imagen, descripcion, tracklist, stock, precio, IsAvailable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [vinyl.titulo, vinyl.artista, vinyl.imagen, JSON.stringify(vinyl.descripcion), JSON.stringify(vinyl.tracklist), vinyl.stock, vinyl.precio, vinyl.IsAvailable ? 1 : 0]
     ).pipe(
-      map(data => data.changes?.lastId || -1)
+      map(data => data.changes?.lastId || -1),
+      catchError(error => {
+        console.error('Error creating vinyl:', error);
+        throw error;
+      })
     );
   }
 
   getVinyls(): Observable<Vinyl[]> {
-    console.log('Intentando obtener vinilos de la base de datos');
+    console.log('Fetching vinyls from database');
     return this.executeSQL('SELECT * FROM Vinyls').pipe(
-      tap(data => console.log('Datos crudos de la base de datos:', data)),
       map(data => {
         if (!data.values || data.values.length === 0) {
-          console.log('No se encontraron vinilos en la base de datos');
+          console.log('No vinyls found in database');
           return [];
         }
-        console.log('Número de vinilos encontrados:', data.values.length);
-        return (data.values as any[]).map(item => ({
-          ...item,
+        return (data.values as VinylDBRecord[]).map(item => ({
+          id: item.id,
+          titulo: item.titulo,
+          artista: item.artista,
+          imagen: item.imagen,
           descripcion: JSON.parse(item.descripcion),
           tracklist: JSON.parse(item.tracklist),
+          stock: item.stock,
+          precio: item.precio,
           IsAvailable: item.IsAvailable === 1
         }));
       }),
-      tap(vinyls => console.log('Vinilos procesados:', vinyls))
+      tap(vinyls => console.log('Processed vinyls:', vinyls)),
+      catchError(error => {
+        console.error('Error fetching vinyls:', error);
+        return of([]);
+      })
     );
   }
 
-
-  // Order methods
   createOrder(order: Order): Observable<number> {
     return this.executeSQL(
       'INSERT INTO Orders (userId, status, totalAmount, orderDetails) VALUES (?, ?, ?, ?)',
       [order.userId, order.status, order.totalAmount, JSON.stringify(order.orderDetails)]
     ).pipe(
-      map(data => data.changes?.lastId || -1)
+      map(data => data.changes?.lastId || -1),
+      catchError(error => {
+        console.error('Error creating order:', error);
+        throw error;
+      })
     );
   }
 
   getOrders(userId?: number): Observable<Order[]> {
     let query = 'SELECT * FROM Orders';
-    let params: any[] = [];
+    const params: number[] = [];
     
     if (userId) {
       query += ' WHERE userId = ?';
@@ -192,40 +338,47 @@ export class DatabaseService {
     
     return this.executeSQL(query, params).pipe(
       map(data => {
-        return (data.values as any[]).map(item => ({
-          ...item,
+        return ((data.values || []) as OrderDBRecord[]).map(item => ({
+          id: item.id,
+          userId: item.userId,
+          createdAt: item.createdAt,
+          status: item.status,
+          totalAmount: item.totalAmount,
           orderDetails: JSON.parse(item.orderDetails)
         }));
+      }),
+      catchError(error => {
+        console.error('Error fetching orders:', error);
+        return of([]);
       })
     );
   }
 
-  // Authentication method
-  authenticateUser(username: string, password: string): Observable<User | null> {
-    return this.executeSQL(
-      'SELECT * FROM Users WHERE username = ? AND password = ?',
-      [username, password]
-    ).pipe(
-      map(data => data.values && data.values.length > 0 ? data.values[0] as User : null)
-    );
-  }
-
-  // Update vinyl stock
   updateVinylStock(vinylId: number, newStock: number): Observable<boolean> {
     return this.executeSQL(
       'UPDATE Vinyls SET stock = ? WHERE id = ?',
       [newStock, vinylId]
     ).pipe(
       map(() => true),
-      catchError(() => from([false]))
+      catchError(error => {
+        console.error('Error updating stock:', error);
+        return of(false);
+      })
     );
   }
 
   insertSeedData(): Observable<boolean> {
-    console.log('Iniciando inserción de datos de prueba');
+    console.log('Starting seed data insertion');
     const users = [
-      { username: 'admin', password: 'admin123', role: 'admin', name: 'Admin User', email: 'admin@example.com', phoneNumber: '966189340' ,createdAt: '2021-07-01 10:00:00', lastLogin: '2021-07-01 10:00:00' },
-      { username: 'employee1', password: 'emp123', role: 'employee', name: 'Employee One', email: 'emp1@example.com', phoneNumber: '91182739,', createdAt: '2021-07-01 10:00:00', lastLogin: '2021-07-01 10:00:00' },
+      { 
+        firstName: 'Usuario',
+        lastName: 'Ejemplo',
+        email: 'usuario@example.com',
+        password: '123456',
+        phoneNumber: '966189340',
+        role: 'user',
+        createdAt: '2021-07-01 10:00:00'
+      }
     ];
   
     const products: Vinyl[] = [
@@ -234,10 +387,10 @@ export class DatabaseService {
         artista: 'Billie Eilish', 
         imagen: 'assets/img/hitme.jpg', 
         descripcion: [
-          'El tercer álbum de estudio de Billie Eilish, «HIT ME HARD AND SOFT», lanzado a través de Darkroom/Interscope Records, es su trabajo más atrevido hasta la fecha, una colección diversa pero cohesiva de canciones, idealmente escuchadas en su totalidad, de principio a fin.',
-          'Exactamente como sugiere el título del álbum; te golpea fuerte y suave tanto lírica como sonoramente, mientras cambia géneros y desafía tendencias a lo largo del camino.',
-          'Con la ayuda de su hermano y único colaborador, FINNEAS, la pareja escribió, grabó y produjo el álbum juntos en su ciudad natal de Los Ángeles.',
-          'Este álbum llega inmediatamente después de sus dos álbumes de gran éxito, «WHEN WE ALL FALL ASLEEP WHERE DO WE GO?» y «Happier Than Ever», y trabaja para desarrollar aún más el mundo de Billie Eilish.'
+          'El tercer álbum de estudio de Billie Eilish, «HIT ME HARD AND SOFT»',
+          'Exactamente como sugiere el título del álbum',
+          'Con la ayuda de su hermano y único colaborador, FINNEAS',
+          'Este álbum llega inmediatamente después de sus dos álbumes'
         ],
         tracklist: [
           'Skinny',
@@ -245,40 +398,44 @@ export class DatabaseService {
           'Chihiro',
           'Birds Of A Feather',
           'Wildflower',
-          'The Greatest',
-          'LAmour De Ma Vie',
-          'The Diner',
-          'Bittersuite',
+          'The greatest',
+          'L’AMOUR DE MA VIE',
+          'THE DINER',
+          'BITTERSUITE',
           'Blue'
         ],
         stock: 10,
-        precio: 5.00,
+        precio: 35990,
         IsAvailable: true 
       },
     ];
-  
+
     return from(Promise.all([
       ...users.map(user => 
         this.database.run(
-          'INSERT OR REPLACE INTO Users (username, password, role, name, email, phoneNumber, createdAt, lastLogin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-          [user.username, user.password, user.role, user.name, user.email, user.phoneNumber, user.createdAt, user.lastLogin]
-        ).then(() => console.log(`Usuario insertado: ${user.username}`))
+          'INSERT INTO Users (firstName, lastName, email, password, phoneNumber, role, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+          [user.firstName, user.lastName, user.email, user.password, user.phoneNumber, user.role, user.createdAt]
+        ).then(() => console.log(`User inserted: ${user.firstName}`))
       ),
       ...products.map(vinyl => 
         this.database.run(
-          'INSERT OR REPLACE INTO Vinyls (titulo, artista, imagen, descripcion, tracklist, stock, precio, IsAvailable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+          'INSERT INTO Vinyls (titulo, artista, imagen, descripcion, tracklist, stock, precio, IsAvailable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
           [vinyl.titulo, vinyl.artista, vinyl.imagen, JSON.stringify(vinyl.descripcion), JSON.stringify(vinyl.tracklist), vinyl.stock, vinyl.precio, vinyl.IsAvailable ? 1 : 0]
-        ).then(() => console.log(`Vinilo insertado: ${vinyl.titulo}`))
+        ).then(() => console.log(`Vinyl inserted: ${vinyl.titulo}`))
       )
     ])).pipe(
       map(() => {
-        console.log('Datos de prueba insertados correctamente');
+        console.log('Seed data inserted successfully');
         return true;
       }),
       catchError(error => {
-        console.error('Error en insertSeedData:', error);
+        console.error('Error in seed data insertion:', error);
         return of(false);
       })
     );
+  }
+
+  public async checkDatabaseState(): Promise<boolean> {
+    return this.dbReady.value;
   }
 }

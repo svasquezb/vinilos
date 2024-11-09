@@ -1,8 +1,5 @@
 import { Component } from '@angular/core';
-import { NavController, MenuController, Platform } from '@ionic/angular';
-import { AuthService } from './services/auth.service';
-import { DatabaseService } from './services/database.service';
-import { firstValueFrom } from 'rxjs';
+import { NavController, MenuController } from '@ionic/angular';
 
 @Component({
   selector: 'app-root',
@@ -10,67 +7,66 @@ import { firstValueFrom } from 'rxjs';
   styleUrls: ['app.component.scss']
 })
 export class AppComponent {
-  static isLoggedIn: boolean = false;
-  static userRole: string = '';
-  static userName: string = '';
-
-  get isLoggedIn(): boolean {
-    return this.authService.isLoggedIn;
-  }
-
-  get isAdmin(): boolean {
-    return this.authService.userRole === 'admin';
-  }
-
-  get isUser(): boolean {
-    return this.authService.userRole === 'user';
-  }
-
-  get userName(): string {
-    return this.authService.userEmail;
-  }
+  public isLoggedIn: boolean = false;
+  public userRole: string = '';
+  public userName: string = '';
 
   constructor(
     private navCtrl: NavController,
-    private menuCtrl: MenuController,
-    private authService: AuthService,
-    private databaseService: DatabaseService,
-    private platform: Platform
+    private menuCtrl: MenuController
   ) {
-    this.initializeApp();
+    // Verificar si hay un usuario guardado en localStorage
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      const currentUser = JSON.parse(storedUser);
+      this.isLoggedIn = true;
+      this.userRole = currentUser.role;
+      this.userName = currentUser.firstName;
+    }
+
+    // Suscribirse a los cambios en el localStorage
+    window.addEventListener('storage', this.onStorageChange.bind(this));
   }
 
-  async initializeApp() {
-    try {
-      await this.platform.ready();
-      await firstValueFrom(this.databaseService.isDatabaseReady());
-      console.log('Base de datos lista');
-      
-      // Insertar datos de prueba
-      const datosInsertados = await firstValueFrom(this.databaseService.insertSeedData());
-      if (datosInsertados) {
-        console.log('Datos de prueba insertados correctamente');
+  private onStorageChange(e: StorageEvent) {
+    if (e.key === 'currentUser') {
+      if (e.newValue) {
+        const currentUser = JSON.parse(e.newValue);
+        this.isLoggedIn = true;
+        this.userRole = currentUser.role;
+        this.userName = currentUser.firstName;
       } else {
-        console.error('No se pudieron insertar los datos de prueba');
+        this.isLoggedIn = false;
+        this.userRole = '';
+        this.userName = '';
       }
-      
-      // Verificar si hay vinilos en la base de datos
-      const vinilos = await firstValueFrom(this.databaseService.getVinyls());
-      console.log('Número de vinilos en la base de datos después de la inicialización:', vinilos.length);
-      
-    } catch (error) {
-      console.error('Error al inicializar la aplicación', error);
     }
   }
 
-  // Método para cerrar sesión
-  logout() {
-    this.authService.logout();
-    this.navCtrl.navigateRoot('/home');
-    this.menuCtrl.close();
+  get isAdmin(): boolean {
+    return this.userRole === 'admin';
   }
 
-  closeMenu() {
-    this.menuCtrl.close();
+  login(user: { role: string, firstName: string }) {
+    this.isLoggedIn = true;
+    this.userRole = user.role;
+    this.userName = user.firstName;
+  }
+
+  logout() {
+    this.isLoggedIn = false;
+    this.userRole = '';
+    this.userName = '';
+    localStorage.removeItem('currentUser');
+    this.navCtrl.navigateRoot('/home');
+  }
+
+  async closeMenu() {
+    await this.menuCtrl.close();
+  }
+
+  ngOnDestroy() {
+    // Eliminar el event listener cuando el componente se destruye
+    window.removeEventListener('storage', this.onStorageChange.bind(this));
   }
 }

@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CartService } from '../services/cart.service';
 import { NavController, ToastController } from '@ionic/angular';
-import { AppComponent } from '../app.component';
 import { DatabaseService } from '../services/database.service';
 import { Vinyl } from '../models/vinilos.model';
 import { firstValueFrom } from 'rxjs';
@@ -78,27 +77,23 @@ export class VinilosPage implements OnInit {
 
   async agregarAlCarrito() {
     if (this.viniloSeleccionado && this.viniloSeleccionado.id !== undefined) {
-      if (AppComponent.isLoggedIn) {
-        try {
-          await firstValueFrom(this.databaseService.updateVinylStock(this.viniloSeleccionado.id, this.viniloSeleccionado.stock - 1));
-          
-          const viniloParaCarrito: Vinyl & { id: number } = {
-            ...this.viniloSeleccionado,
-            id: this.viniloSeleccionado.id
-          };
-          
-          this.cartService.addToCart(viniloParaCarrito);
-          await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
-          
-          await this.cargarVinilos();
-          
-          this.cerrarDescripcion();
-        } catch (error) {
-          console.error('Error al agregar al carrito:', error);
-          await this.presentToast('Error al agregar al carrito. Por favor, intente de nuevo.');
-        }
-      } else {
-        await this.presentToast('Por favor, inicia sesión para agregar al carrito.', 'warning');
+      try {
+        await firstValueFrom(this.databaseService.updateVinylStock(this.viniloSeleccionado.id, this.viniloSeleccionado.stock - 1));
+        
+        const viniloParaCarrito: Vinyl & { id: number } = {
+          ...this.viniloSeleccionado,
+          id: this.viniloSeleccionado.id
+        };
+        
+        this.cartService.addToCart(viniloParaCarrito);
+        await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
+        
+        await this.cargarVinilos();
+        
+        this.cerrarDescripcion();
+      } catch (error) {
+        console.error('Error al agregar al carrito:', error);
+        await this.presentToast('Error al agregar al carrito. Por favor, intente de nuevo.', 'danger');
       }
     } else {
       await this.presentToast('No se puede agregar este vinilo al carrito.', 'danger');

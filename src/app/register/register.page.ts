@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
-import { NavController, ToastController } from '@ionic/angular';
+import { NavController, ToastController, LoadingController } from '@ionic/angular';
+import { DatabaseService } from '../services/database.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-register',
@@ -13,63 +15,89 @@ export class RegisterPage {
   firstName: string = '';
   lastName: string = '';
 
-  users: { email: string, password: string, firstName: string, lastName: string }[] = [];
-
   constructor(
     private navCtrl: NavController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private loadingController: LoadingController,
+    private databaseService: DatabaseService
   ) {}
 
   async register() {
-    if (!this.email || !this.password || !this.confirmPassword || !this.firstName || !this.lastName) {
-      await this.presentToast('Por favor, rellene todos los campos', 'warning');
+    if (!this.validateFields()) {
       return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Registrando usuario...'
+    });
+
+    try {
+      await loading.present();
+
+      // Verificar si el email existe
+      const emailExists = await firstValueFrom(this.databaseService.checkEmailExists(this.email));
+      
+      if (emailExists) {
+        await loading.dismiss();
+        await this.presentToast('Este correo electrónico ya está registrado', 'warning');
+        return;
+      }
+
+      // Registrar usuario
+      const result = await firstValueFrom(this.databaseService.registerUser({
+        firstName: this.firstName,
+        lastName: this.lastName,
+        email: this.email,
+        password: this.password
+      }));
+
+      await loading.dismiss();
+
+      if (result.success) {
+        await this.presentToast('Registro exitoso', 'success');
+        this.navCtrl.navigateRoot('/home');
+      } else {
+        await this.presentToast('Error en el registro: ' + (result.error || 'Error desconocido'), 'danger');
+      }
+    } catch (error) {
+      console.error('Error en el registro:', error);
+      await loading.dismiss();
+      await this.presentToast('Error en el registro. Por favor, intente nuevamente.', 'danger');
+    }
+  }
+
+  private validateFields(): boolean {
+    if (!this.email || !this.password || !this.confirmPassword || !this.firstName || !this.lastName) {
+      this.presentToast('Por favor, complete todos los campos', 'warning');
+      return false;
     }
 
     if (!this.validateEmail(this.email)) {
-      await this.presentToast('Por favor, ingrese un correo electrónico válido', 'warning');
-      return;
-    }
-
-    if (!this.validatePassword(this.password)) {
-      await this.presentToast('La contraseña debe tener entre 8 y 30 caracteres, incluir al menos una mayúscula y un número', 'warning');
-      return;
+      this.presentToast('Por favor, ingrese un correo electrónico válido', 'warning');
+      return false;
     }
 
     if (this.password !== this.confirmPassword) {
-      await this.presentToast('Las contraseñas no coinciden', 'danger');
-      return;
+      this.presentToast('Las contraseñas no coinciden', 'danger');
+      return false;
+    }
+
+    if (this.password.length < 6) {
+      this.presentToast('La contraseña debe tener al menos 6 caracteres', 'warning');
+      return false;
     }
 
     if (!this.validateName(this.firstName) || !this.validateName(this.lastName)) {
-      await this.presentToast('El nombre y apellido no deben contener caracteres especiales', 'warning');
-      return;
+      this.presentToast('El nombre y apellido no deben contener caracteres especiales', 'warning');
+      return false;
     }
 
-    const userExists = this.users.some(user => user.email === this.email);
-
-    if (userExists) {
-      await this.presentToast('Este usuario ya está registrado', 'warning');
-    } else {
-      this.users.push({ 
-        email: this.email, 
-        password: this.password, 
-        firstName: this.firstName, 
-        lastName: this.lastName 
-      });
-      await this.presentToast('Registro exitoso', 'success');
-      this.navCtrl.navigateForward('/login');
-    }
+    return true;
   }
 
   validateEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
-  }
-
-  validatePassword(password: string): boolean {
-    const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,30}$/;
-    return passwordRegex.test(password);
   }
 
   validateName(name: string): boolean {
@@ -84,10 +112,6 @@ export class RegisterPage {
       position: 'bottom',
       color: color
     });
-    toast.present();
-  }
-
-  goToLogin() {
-    this.navCtrl.navigateForward('/login');
+    await toast.present();
   }
 }

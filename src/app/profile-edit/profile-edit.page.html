@@ -3,12 +3,12 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/home"></ion-back-button>
     </ion-buttons>
-    <ion-title>{{ isAdmin ? 'Panel de Administración' : 'Mi Perfil' }}</ion-title>
+    <ion-title>Mi Perfil</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content class="ion-padding">
-  <!-- Perfil del usuario actual -->
+  <!-- Perfil del usuario -->
   <ng-container *ngIf="currentUser">
     <!-- Sección de foto de perfil -->
     <div class="profile-photo-container">
@@ -28,7 +28,7 @@
       <ion-card-header>
         <ion-card-title>
           <ion-icon name="person-circle-outline"></ion-icon>
-          {{ isAdmin ? 'Mi Perfil (Admin)' : 'Mi Perfil' }}
+          Mi Perfil
         </ion-card-title>
       </ion-card-header>
 
@@ -78,77 +78,13 @@
           </ion-input>
         </ion-item>
 
-        <ion-item>
-          <ion-label position="stacked">
-            <ion-icon name="key-outline"></ion-icon>
-            Nueva Contraseña
-          </ion-label>
-          <ion-input 
-            type="password" 
-            [(ngModel)]="newPassword"
-            placeholder="Ingrese nueva contraseña">
-          </ion-input>
-        </ion-item>
-
         <!-- Botones de acción -->
         <div class="action-buttons">
           <ion-button expand="block" (click)="saveUser()">
             <ion-icon name="save-outline" slot="start"></ion-icon>
             Guardar Cambios
           </ion-button>
-          
-          <ion-button 
-            expand="block" 
-            (click)="updatePassword()" 
-            [disabled]="!newPassword"
-            color="secondary">
-            <ion-icon name="key-outline" slot="start"></ion-icon>
-            Actualizar Contraseña
-          </ion-button>
         </div>
-      </ion-card-content>
-    </ion-card>
-  </ng-container>
-
-  <!-- Lista de usuarios (solo para admin) -->
-  <ng-container *ngIf="isAdmin">
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>
-          <ion-icon name="people-circle-outline"></ion-icon>
-          Gestión de Usuarios
-        </ion-card-title>
-      </ion-card-header>
-
-      <ion-card-content>
-        <ion-list>
-          <ion-item *ngFor="let user of users">
-            <ion-avatar slot="start">
-              <ion-img [src]="user.photo || 'assets/default-avatar.png'"></ion-img>
-            </ion-avatar>
-            
-            <ion-label>
-              <h2>{{ user.name }} {{ user.lastName }}</h2>
-              <p>
-                <ion-icon name="mail-outline"></ion-icon>
-                {{ user.email }}
-              </p>
-              <p>
-                <ion-icon name="shield-outline"></ion-icon>
-                {{ user.role | titlecase }}
-              </p>
-            </ion-label>
-
-            <ion-button 
-              fill="clear" 
-              color="danger" 
-              (click)="deleteUser(user.email)"
-              *ngIf="user.email !== authService.userEmail"
-              slot="end">
-              <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-          </ion-item>
-        </ion-list>
       </ion-card-content>
     </ion-card>
   </ng-container>

@@ -1,10 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { NavController, ToastController, LoadingController } from '@ionic/angular';
-import { AuthService } from '../services/auth.service';
 
 interface User {
   email: string;
-  role: string;
   name: string;
   lastName: string;
   address: string;
@@ -18,64 +16,30 @@ interface User {
 })
 export class ProfileEditPage implements OnInit {
   users: User[] = [
-    { email: 'admin@example.com', role: 'admin', name: 'Admin', lastName: 'User', address: 'Admin St', photo: '' },
-    { email: 'user@example.com', role: 'user', name: 'Normal', lastName: 'User', address: 'User St', photo: '' }
+    { email: 'user@example.com', name: 'Normal', lastName: 'User', address: 'User St', photo: '' }
   ];
   
   currentUser: User | null = null;
   newPassword: string = '';
-  isAdmin: boolean = false;
   loading: boolean = false;
   photoLoading: boolean = false;
 
   constructor(
     private navCtrl: NavController,
     private toastController: ToastController,
-    private loadingController: LoadingController,
-    public authService: AuthService
+    private loadingController: LoadingController
   ) {}
 
   ngOnInit() {
-    this.checkLoginStatus();
-  }
-
-  async checkLoginStatus() {
-    if (!this.authService.isLoggedIn) {
-      await this.presentToast('Acceso denegado. Por favor, inicie sesión.');
-      this.navCtrl.navigateRoot('/home');
-      return;
-    }
-
-    this.isAdmin = this.authService.userRole === 'admin';
-    await this.loadCurrentUser();
+    this.loadCurrentUser();
   }
 
   async loadCurrentUser() {
     this.loading = true;
-    const userEmail = this.authService.userEmail;
     
-    if (!userEmail) {
-      await this.presentToast('Error: No se encontró el email del usuario');
-      this.loading = false;
-      return;
-    }
-
-    // Simulamos una carga asíncrona
+    // Simulamos una carga asíncrona con un usuario por defecto
     setTimeout(() => {
-      this.currentUser = this.users.find(u => u.email === userEmail) || null;
-      
-      if (!this.currentUser) {
-        this.currentUser = {
-          email: userEmail,
-          role: this.authService.userRole || 'user',
-          name: '',
-          lastName: '',
-          address: '',
-          photo: ''
-        };
-        this.users.push(this.currentUser);
-      }
-      
+      this.currentUser = this.users[0];
       this.loading = false;
     }, 1000);
   }
@@ -104,29 +68,6 @@ export class ProfileEditPage implements OnInit {
     }
   }
 
-  async deleteUser(email: string) {
-    if (!this.isAdmin) {
-      await this.presentToast('Solo los administradores pueden eliminar usuarios.');
-      return;
-    }
-
-    if (email === this.authService.userEmail) {
-      await this.presentToast('No puedes eliminar tu propio usuario.');
-      return;
-    }
-
-    const loading = await this.presentLoading('Eliminando usuario...');
-
-    try {
-      this.users = this.users.filter(user => user.email !== email);
-      await this.presentToast('Usuario eliminado con éxito.');
-    } catch (error) {
-      await this.presentToast('Error al eliminar el usuario.');
-    } finally {
-      loading.dismiss();
-    }
-  }
-
   async updatePassword() {
     if (!this.newPassword.trim()) {
       await this.presentToast('Por favor, ingrese una nueva contraseña.');
@@ -136,8 +77,7 @@ export class ProfileEditPage implements OnInit {
     const loading = await this.presentLoading('Actualizando contraseña...');
 
     try {
-      // Aquí iría la lógica para actualizar la contraseña en el backend
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulación de llamada al backend
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulación
       await this.presentToast('Contraseña actualizada con éxito.');
       this.newPassword = '';
     } catch (error) {

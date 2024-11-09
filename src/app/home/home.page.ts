@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CartService, CartVinyl } from '../services/cart.service';
 import { Vinyl } from '../models/vinilos.model';  
-import { AppComponent } from '../app.component';
 import { ToastController } from '@ionic/angular';
 
 @Component({
@@ -34,7 +33,7 @@ export class HomePage implements OnInit, OnDestroy {
       ],
       stock: 10,
       precio: 35990,
-      IsAvailable: true  // Añadido
+      IsAvailable: true
     },
     {
       id: 6,
@@ -59,7 +58,7 @@ export class HomePage implements OnInit, OnDestroy {
       ],
       stock: 10,
       precio: 41990,
-      IsAvailable: true  // Añadido
+      IsAvailable: true
     },
     {
       id: 7,
@@ -84,7 +83,7 @@ export class HomePage implements OnInit, OnDestroy {
       ],
       stock: 10,
       precio: 33900,
-      IsAvailable: true  // Añadido
+      IsAvailable: true
     },
   ];
 
@@ -131,13 +130,9 @@ export class HomePage implements OnInit, OnDestroy {
 
   async agregarAlCarrito() {
     if (this.viniloSeleccionado) {
-      if (AppComponent.isLoggedIn) {
-        this.cartService.addToCart(this.viniloSeleccionado);
-        await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
-        this.cerrarDescripcion();
-      } else {
-        await this.presentToast('Por favor, inicia sesión para agregar al carrito.', 'warning');
-      }
+      this.cartService.addToCart(this.viniloSeleccionado);
+      await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
+      this.cerrarDescripcion();
     }
   }
 
