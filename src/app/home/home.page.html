@@ -19,11 +19,20 @@
     <ion-grid>
       <ion-row>
         <ion-col size="12">
-          <div class="vinilos-scroll-container">
+          <!-- Loading spinner -->
+          <div class="loading-container" *ngIf="!vinilosDestacados.length">
+            <ion-spinner></ion-spinner>
+            <p>Cargando vinilos destacados...</p>
+          </div>
+
+          <!-- Vinilos container -->
+          <div class="vinilos-scroll-container" *ngIf="vinilosDestacados.length">
             <ion-card *ngFor="let vinilo of vinilosDestacados" class="vinilo-card" (click)="verDetalles(vinilo)">
               <img [src]="vinilo.imagen" [alt]="vinilo.titulo">
               <ion-card-header>
                 <ion-card-title>{{ vinilo.titulo }}</ion-card-title>
+                <ion-card-subtitle>{{ vinilo.artista }}</ion-card-subtitle>
+                <p class="precio">{{ vinilo.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
               </ion-card-header>
             </ion-card>
           </div>
@@ -32,6 +41,7 @@
     </ion-grid>
   </ion-content>
 
+  <!-- Modal de detalles -->
   <ion-modal [isOpen]="!!viniloSeleccionado">
     <ng-template>
       <ion-header>
@@ -70,14 +80,19 @@
           </ol>
         </div>
 
-        <ion-text color="primary">
+       <!-- En la sección del modal, cambia estas partes -->
+        <ion-text>
           <h3>Precio: {{ viniloSeleccionado?.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</h3>
         </ion-text>
-        <ion-text color="medium">
+        <ion-text [color]="viniloSeleccionado?.stock === 0 ? 'danger' : 'medium'">
           <p>Stock disponible: {{ viniloSeleccionado?.stock ?? 'N/A' }}</p>
         </ion-text>
-        <ion-button expand="block" (click)="agregarAlCarrito()" [disabled]="viniloSeleccionado?.stock === 0">
-          Agregar al carrito
+        <ion-button 
+          expand="block" 
+          (click)="agregarAlCarrito()" 
+          [disabled]="!viniloSeleccionado?.stock"
+          class="vintage-button">
+          {{ viniloSeleccionado?.stock ? 'Agregar al carrito' : 'Sin stock' }}
         </ion-button>
       </ion-content>
     </ng-template>

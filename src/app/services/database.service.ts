@@ -87,15 +87,21 @@ export class DatabaseService {
       let db: SQLiteDBConnection;
       
       if (retCC.result && isConn) {
+        console.log('Retrieving existing database connection');
         db = await this.sqlite.retrieveConnection(dbName, false);
       } else {
+        console.log('Creating new database connection');
         db = await this.sqlite.createConnection(dbName, false, "no-encryption", 1, false);
+        
+        // Solo crear tablas e insertar datos si es una nueva conexión
+        await db.open();
+        this.database = db;
+        await this.createTables();
+        await this.insertSeedData().toPromise();
       }
-      
+  
       await db.open();
       this.database = db;
-      await this.createTables();
-      await this.insertSeedData().toPromise();
       this.dbReady.next(true);
       console.log('Database initialized successfully');
     } catch (error) {
@@ -189,31 +195,51 @@ export class DatabaseService {
   }
 
   registerUser(userData: RegisterUserData): Observable<any> {
-    console.log('Attempting to register user:', userData);
+    console.log('Starting user registration process:', userData);
     return this.getDatabaseState().pipe(
       switchMap(ready => {
         if (!ready) {
+          console.error('Database not ready during registration');
           throw new Error('Database not ready');
         }
-
-        return this.executeSQL(
-          'INSERT INTO Users (firstName, lastName, email, password, role) VALUES (?, ?, ?, ?, ?)',
-          [userData.firstName, userData.lastName, userData.email, userData.password, 'user']
-        );
+  
+        const query = `INSERT INTO Users 
+          (firstName, lastName, email, password, role, createdAt) 
+          VALUES (?, ?, ?, ?, ?, datetime('now'))`;
+        
+        return this.executeSQL(query, [
+          userData.firstName,
+          userData.lastName,
+          userData.email,
+          userData.password,
+          'user'
+        ]);
       }),
       map(result => {
-        console.log('Registration result:', result);
-        if (result && result.changes && result.changes.lastId) {
-          return {
-            success: true,
-            userId: result.changes.lastId
-          };
-        }
-        throw new Error('Failed to insert user');
+        console.log('Database insert result:', result);
+        
+        // Generar un ID si no hay uno de la base de datos
+        const userId = result?.changes?.lastId || Math.floor(Date.now() / 1000);
+        
+        return {
+          success: true,
+          userId: userId,
+          user: {
+            id: userId,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            role: 'user',
+            createdAt: new Date().toISOString()
+          }
+        };
+      }),
+      tap(response => {
+        console.log('Registration response:', response);
       }),
       catchError(error => {
-        console.error('Error in registerUser:', error);
-        if (error.message && error.message.includes('UNIQUE constraint failed')) {
+        console.error('Error in registration:', error);
+        if (error.message?.includes('UNIQUE constraint failed')) {
           return of({
             success: false,
             error: 'Este correo electrónico ya está registrado'
@@ -354,6 +380,74 @@ export class DatabaseService {
     );
   }
 
+  getUserById(userId: number): Observable<any> {
+    return this.executeSQL(
+      'SELECT * FROM Users WHERE id = ?',
+      [userId]
+    ).pipe(
+      map(result => {
+        if (result.values && result.values.length > 0) {
+          return result.values[0];
+        }
+        throw new Error('Usuario no encontrado');
+      }),
+      catchError(error => {
+        console.error('Error fetching user:', error);
+        return of(null);
+      })
+    );
+  }
+  
+  updateUser(userData: any): Observable<any> {
+    const query = `
+      UPDATE Users 
+      SET firstName = ?,
+          lastName = ?,
+          address = ?,
+          phoneNumber = ?
+      WHERE id = ?
+    `;
+    
+    return this.executeSQL(query, [
+      userData.firstName,
+      userData.lastName,
+      userData.address || null,
+      userData.phoneNumber || null,
+      userData.id
+    ]).pipe(
+      map(result => ({
+        success: true,
+        changes: result.changes
+      })),
+      catchError(error => {
+        console.error('Error updating user:', error);
+        return of({
+          success: false,
+          error: error.message || 'Error updating user'
+        });
+      })
+    );
+  }
+  
+  updateUserPhoto(userId: number, photoData: string): Observable<any> {
+    return this.executeSQL(
+      'UPDATE Users SET photo = ? WHERE id = ?',
+      [photoData, userId]
+    ).pipe(
+      map(result => ({
+        success: true,
+        changes: result.changes
+      })),
+      catchError(error => {
+        console.error('Error updating user photo:', error);
+        return of({
+          success: false,
+          error: error.message || 'Error updating photo'
+        });
+      })
+    );
+  }
+
   updateVinylStock(vinylId: number, newStock: number): Observable<boolean> {
     return this.executeSQL(
       'UPDATE Vinyls SET stock = ? WHERE id = ?',
@@ -383,31 +477,117 @@ export class DatabaseService {
   
     const products: Vinyl[] = [
       { 
-        titulo: 'Hit me hard & soft', 
-        artista: 'Billie Eilish', 
-        imagen: 'assets/img/hitme.jpg', 
+        titulo: 'Hit me hard & soft',
+        artista: 'Billie Eilish',
+        imagen: 'assets/img/hitme.jpg',
         descripcion: [
-          'El tercer álbum de estudio de Billie Eilish, «HIT ME HARD AND SOFT»',
-          'Exactamente como sugiere el título del álbum',
-          'Con la ayuda de su hermano y único colaborador, FINNEAS',
-          'Este álbum llega inmediatamente después de sus dos álbumes'
+          'El tercer álbum de estudio de Billie Eilish, «HIT ME HARD AND SOFT», lanzado a través de Darkroom/Interscope Records, es su trabajo más atrevido hasta la fecha, una colección diversa pero cohesiva de canciones, idealmente escuchadas en su totalidad, de principio a fin.'
         ],
-        tracklist: [
-          'Skinny',
-          'Lunch',
-          'Chihiro',
-          'Birds Of A Feather',
-          'Wildflower',
-          'The greatest',
-          'L’AMOUR DE MA VIE',
-          'THE DINER',
-          'BITTERSUITE',
-          'Blue'
-        ],
+        tracklist: ['Skinny', 'Lunch', 'Chihiro', 'Birds Of A Feather', 'Wildflower', 'The Greatest', 'LAmour De Ma Vie', 'The Diner', 'Bittersuite', 'Blue'],
         stock: 10,
-        precio: 35990,
+        precio: 39990,
         IsAvailable: true 
       },
+      {
+        titulo: 'Dont smite at me',
+        artista: 'Billie Eilish',
+        imagen: 'assets/img/dontat.jpg',
+        descripcion: ['Dont Smile at Me, es el primer extended play de la cantante estadounidense Billie Eilish​ Se lanzó el 11 de agosto de 2017 a través del sello discográfico Interscope Records.'],
+        tracklist: ['COPYCAT', 'idontwannabeyouanymore', 'my boy', 'watch', 'party favor', 'bellyache', 'ocean eyes', 'hostage', '&burn by Billie Eilish & Vince Staples'],
+        stock: 10,
+        precio: 29990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'Happier than ever',
+        artista: 'Billie Eilish',
+        imagen: 'assets/img/happier.jpg',
+        descripcion: ['Happier Than Ever es el segundo álbum de estudio de la cantautora estadounidense Billie Eilish, cuyo lanzamiento tuvo lugar el 30 de julio de 2021.'],
+        tracklist: ['Getting Older', 'I Didnt Change My Number', 'Billie Bossa Nova', 'my future', 'Oxytocin', 'GOLDWING', 'Lost Cause', 'Halleys Comet', 'Not My Responsibility', 'OverHeated', 'Everybody Dies', 'Your Power', 'NDA', 'Therefore I Am', 'Happier Than Ever', 'Male Fantasy'],
+        stock: 10,
+        precio: 25990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'When We All Fall Asleep, Where Do We Go?',
+        artista: 'Billie Eilish',
+        imagen: 'assets/img/whenwe.jpg',
+        descripcion: ['When We All Fall Asleep, Where Do We Go? es el álbum de estudio debut de la cantante y compositora estadounidense Billie Eilish. Fue lanzado el 29 de marzo de 2019.'],
+        tracklist: ['!!!!!!!', 'bad guy', 'xanny', 'you should see me in a crown', 'all the good girls go to hell', 'wish you were gay', 'when the partys over', '8', 'my strange addiction', 'bury a friend', 'ilomilo', 'listen before i go', 'i love you', 'goodbye'],
+        stock: 10,
+        precio: 21990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'Sempiternal',
+        artista: 'Bring me the horizon',
+        imagen: 'assets/img/sempiternal.jpg',
+        descripcion: ['Sempiternal es el cuarto álbum de estudio de la banda de rock británica Bring Me the Horizon. Fue lanzado el 1 de abril de 2013.'],
+        tracklist: ['Can You Feel My Heart', 'The House of Wolves', 'Empire (Let Them Sing)', 'Sleepwalking', 'Go to Hell, for Heavens Sake', 'Shadow Moses', 'And the Snakes Start to Sing', 'Seen It All Before', 'Antivist', 'Crooked Young', 'Hospital for Souls'],
+        stock: 10,
+        precio: 35990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'That the spirit',
+        artista: 'Bring me the horizon',
+        imagen: 'assets/img/spirit.jpg',
+        descripcion: ['Thats the Spirit es el nombre del quinto álbum de estudio de la banda británica Bring Me the Horizon. Fue lanzado el 11 de septiembre de 2015.'],
+        tracklist: ['Doomed', 'Happy Song', 'Throne', 'True Friends', 'Follow You', 'What You Need', 'Avalanche', 'Run', 'Drown', 'Blasphemy', 'Oh No'],
+        stock: 10,
+        precio: 41990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'Anti-icon',
+        artista: 'Ghostemane',
+        imagen: 'assets/img/anti.jpg',
+        descripcion: ['ANTI-ICON es el octavo álbum de estudio del artista estadounidense Ghostemane.'],
+        tracklist: ['Intro.Destitute', 'Vagabond', 'Lazaretto', 'Sacrilege', 'AI', 'Fed Up', 'The Winds of Change', 'Hydrochloride', 'Hellrap', 'Anti-Social Masochistic Rage [ASMR]', 'Melanchoholic', 'Calamity', 'Falling Down'],
+        stock: 10,
+        precio: 33900,
+        IsAvailable: true
+      },
+      {
+        titulo: 'The Death of Peace of Mind',
+        artista: 'Bad Omens',
+        imagen: 'assets/img/thedeath.jpg',
+        descripcion: ['The Death of Peace of Mind es el tercer álbum de estudio de la banda estadounidense Bad Omens.'],
+        tracklist: ['Concrete Jungle', 'Nowhere To Go', 'Take Me First', 'The Death Of Peace Of Mind', 'What It Cost', 'Like A Villain', 'Bad Decisions', 'Just Pretend', 'The Grey', 'Who Are You', 'Somebody Else', 'IDWT$', 'What Do You Want From Me?', 'Artificial Suicide', 'Miracle'],
+        stock: 10,
+        precio: 33900,
+        IsAvailable: true
+      },
+      {
+        titulo: 'Scoring the End of the World',
+        artista: 'Motionless in White',
+        imagen: 'assets/img/scoring.jpg',
+        descripcion: ['Scoring the End of the World es el sexto álbum de estudio de la banda estadounidense de metalcore Motionless in White. Fue lanzado el 10 de junio de 2022.'],
+        tracklist: ['Meltdown', 'Sign of Life', 'Werewolf', 'Porcelain', 'Slaughterhouse', 'Masterpiece', 'Cause of Death', 'We Become the Night', 'Burned at Both Ends II', 'B.F.B.T.G.: Corpse Nation', 'Cyberhex', 'Red, White & Boom', 'Scoring the End of the World'],
+        stock: 10,
+        precio: 31990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'For those that wish to exist',
+        artista: 'Architects',
+        imagen: 'assets/img/for.jpg',
+        descripcion: ['For Those That Wish to Exist es el noveno álbum de estudio de la banda británica de metalcore Architects. Se lanzó el 26 de febrero de 2021.'],
+        tracklist: ['Do You Dream of Armageddon', 'Black Lungs', 'Giving Blood', 'Discourse Is Dead', 'Dead Butterflies', 'An Ordinary Extinction', 'Impermanence', 'Flight Without Feathers', 'Little Wonder', 'Animals', 'Libertine', 'Goliath', 'Demi God', 'Meteor', 'Dying Is Absolutely Safe'],
+        stock: 10,
+        precio: 34990,
+        IsAvailable: true
+      },
+      {
+        titulo: 'Disguise',
+        artista: 'Motionless in White',
+        imagen: 'assets/img/disguise.jpg',
+        descripcion: ['Disguise es el quinto álbum de estudio de la banda estadounidense de metal gótico'],
+        tracklist: ['Disguise', 'Headache', '</c0de>', 'Thoughts & Prayers', 'Legacy', 'Undead Ahead 2: The Tale of the Midnight Ride', 'Holding On To Smoke', 'Another Life', 'Broadcasting From Beyond The Grave: Death Inc.', 'Brand New Numb', 'Catharsis'],
+        stock: 10,
+        precio: 28990,
+        IsAvailable: true
+      }
     ];
 
     return from(Promise.all([

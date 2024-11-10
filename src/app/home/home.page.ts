@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CartService, CartVinyl } from '../services/cart.service';
 import { Vinyl } from '../models/vinilos.model';  
 import { ToastController } from '@ionic/angular';
+import { DatabaseService } from '../services/database.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-home',
@@ -9,84 +11,7 @@ import { ToastController } from '@ionic/angular';
   styleUrls: ['home.page.scss'],
 })
 export class HomePage implements OnInit, OnDestroy {
-  vinilosDestacados: Vinyl[] = [
-    {
-      id: 5,
-      titulo: 'Sempiternal',
-      artista: 'Bring me the horizon',
-      imagen: 'assets/img/sempiternal.jpg',
-      descripcion: [
-        'Sempiternal es el cuarto álbum de estudio de la banda de rock británica Bring Me the Horizon. Fue lanzado el 1 de abril de 2013 en todo el mundo a través de RCA Records, un sello subsidiario de Sony Music, y el 2 de abril de 2013 en los Estados Unidos y Canadá a través de Epitaph Records.'
-      ],
-      tracklist: [
-        'Can You Feel My Heart',
-        'The House of Wolves',
-        'Empire (Let Them Sing)',
-        'Sleepwalking',
-        'Go to Hell, for Heavens Sake',
-        'Shadow Moses',
-        'And the Snakes Start to Sing',
-        'Seen It All Before',
-        'Antivist',
-        'Crooked Young',
-        'Hospital for Souls'
-      ],
-      stock: 10,
-      precio: 35990,
-      IsAvailable: true
-    },
-    {
-      id: 6,
-      titulo: 'That the spirit',
-      artista: 'Bring me the horizon',
-      imagen: 'assets/img/spirit.jpg',
-      descripcion: [
-        'Thats the Spirit —en español: Ese es el espíritu— es el nombre del quinto álbum de estudio de la banda británica Bring Me the Horizon. Fue lanzado el 11 de septiembre de 2015,  y marca un sonido bastante alejado al de sus orígenes como una banda de metalcore.'
-      ],
-      tracklist: [
-        'Doomed',
-        'Happy Song',
-        'Throne',
-        'True Friends',
-        'Follow You',
-        'What You Need',
-        'Avalanche',
-        'Run',
-        'Drown',
-        'Blasphemy',
-        'Oh No'
-      ],
-      stock: 10,
-      precio: 41990,
-      IsAvailable: true
-    },
-    {
-      id: 7,
-      titulo: 'Anti-icon',
-      artista: 'Ghostemane',
-      imagen: 'assets/img/anti.jpg',
-      descripcion: [],
-      tracklist: [
-        'Intro.Destitute',
-        'Vagabond',
-        'Lazaretto',
-        'Sacrilege',
-        'AI',
-        'Fed Up',
-        'The Winds of Change',
-        'Hydrochloride',
-        'Hellrap',
-        'Anti-Social Masochistic Rage [ASMR]',
-        'Melanchoholic',
-        'Calamity',
-        'Falling Down'
-      ],
-      stock: 10,
-      precio: 33900,
-      IsAvailable: true
-    },
-  ];
-
+  vinilosDestacados: Vinyl[] = [];
   viniloSeleccionado: Vinyl | null = null;
   mostrarDescripcionDetalle: 'descripcion' | 'tracklist' = 'descripcion';
 
@@ -101,16 +26,32 @@ export class HomePage implements OnInit, OnDestroy {
 
   constructor(
     private cartService: CartService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private databaseService: DatabaseService
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     this.startBannerRotation();
+    await this.cargarVinilosDestacados();
   }
 
   ngOnDestroy() {
     if (this.bannerInterval) {
       clearInterval(this.bannerInterval);
+    }
+  }
+
+  async cargarVinilosDestacados() {
+    try {
+      // Cargar todos los vinilos
+      const vinilos = await firstValueFrom(this.databaseService.getVinyls());
+      
+      this.vinilosDestacados = vinilos.slice(0, 5);
+
+      console.log('Vinilos destacados cargados:', this.vinilosDestacados);
+    } catch (error) {
+      console.error('Error al cargar vinilos destacados:', error);
+      await this.presentToast('Error al cargar los vinilos destacados', 'danger');
     }
   }
 
@@ -130,9 +71,24 @@ export class HomePage implements OnInit, OnDestroy {
 
   async agregarAlCarrito() {
     if (this.viniloSeleccionado) {
-      this.cartService.addToCart(this.viniloSeleccionado);
-      await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
-      this.cerrarDescripcion();
+      if (this.viniloSeleccionado.stock > 0) {
+        this.cartService.addToCart(this.viniloSeleccionado);
+        await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
+        this.cerrarDescripcion();
+        
+        // Actualizar el stock en la base de datos
+        await firstValueFrom(
+          this.databaseService.updateVinylStock(
+            this.viniloSeleccionado.id!, 
+            this.viniloSeleccionado.stock - 1
+          )
+        );
+        
+        // Recargar los vinilos para actualizar la vista
+        await this.cargarVinilosDestacados();
+      } else {
+        await this.presentToast('No hay stock disponible', 'warning');
+      }
     }
   }
 

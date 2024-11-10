@@ -1,44 +1,85 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { NavController, MenuController } from '@ionic/angular';
+import { Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { DatabaseService } from './services/database.service';
 
 @Component({
   selector: 'app-root',
   templateUrl: 'app.component.html',
   styleUrls: ['app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   public isLoggedIn: boolean = false;
   public userRole: string = '';
   public userName: string = '';
 
   constructor(
     private navCtrl: NavController,
-    private menuCtrl: MenuController
+    private menuCtrl: MenuController,
+    private router: Router,
+    private databaseService: DatabaseService
   ) {
-    // Verificar si hay un usuario guardado en localStorage
+    // Suscribirse a los cambios de ruta
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.checkAuthStatus();
+    });
+  }
+
+  ngOnInit() {
+    // Verificar estado inicial
+    this.checkAuthStatus();
+    
+    // Agregar listener para cambios en localStorage
+    window.addEventListener('storage', this.onStorageChange.bind(this));
+  }
+
+  private checkAuthStatus() {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
-      const currentUser = JSON.parse(storedUser);
-      this.isLoggedIn = true;
-      this.userRole = currentUser.role;
-      this.userName = currentUser.firstName;
+      try {
+        const currentUser = JSON.parse(storedUser);
+        this.updateAuthState(true, currentUser);
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        this.clearAuthState();
+      }
+    } else {
+      this.clearAuthState();
     }
+  }
 
-    // Suscribirse a los cambios en el localStorage
-    window.addEventListener('storage', this.onStorageChange.bind(this));
+  private updateAuthState(isLoggedIn: boolean, user?: any) {
+    this.isLoggedIn = isLoggedIn;
+    if (user) {
+      this.userRole = user.role || '';
+      this.userName = user.firstName || '';
+    } else {
+      this.userRole = '';
+      this.userName = '';
+    }
+  }
+
+  private clearAuthState() {
+    this.isLoggedIn = false;
+    this.userRole = '';
+    this.userName = '';
   }
 
   private onStorageChange(e: StorageEvent) {
     if (e.key === 'currentUser') {
       if (e.newValue) {
-        const currentUser = JSON.parse(e.newValue);
-        this.isLoggedIn = true;
-        this.userRole = currentUser.role;
-        this.userName = currentUser.firstName;
+        try {
+          const currentUser = JSON.parse(e.newValue);
+          this.updateAuthState(true, currentUser);
+        } catch (error) {
+          console.error('Error parsing storage change:', error);
+          this.clearAuthState();
+        }
       } else {
-        this.isLoggedIn = false;
-        this.userRole = '';
-        this.userName = '';
+        this.clearAuthState();
       }
     }
   }
@@ -48,17 +89,21 @@ export class AppComponent {
   }
 
   login(user: { role: string, firstName: string }) {
-    this.isLoggedIn = true;
-    this.userRole = user.role;
-    this.userName = user.firstName;
+    this.updateAuthState(true, user);
   }
 
-  logout() {
-    this.isLoggedIn = false;
-    this.userRole = '';
-    this.userName = '';
+  async logout() {
+    // Solo eliminar la sesión actual
     localStorage.removeItem('currentUser');
-    this.navCtrl.navigateRoot('/home');
+    
+    // Limpiar el estado de la aplicación
+    this.clearAuthState();
+    
+    // Cerrar el menú
+    await this.closeMenu();
+    
+    // Navegar al home
+    this.router.navigate(['/home'], { replaceUrl: true });
   }
 
   async closeMenu() {
@@ -66,7 +111,6 @@ export class AppComponent {
   }
 
   ngOnDestroy() {
-    // Eliminar el event listener cuando el componente se destruye
     window.removeEventListener('storage', this.onStorageChange.bind(this));
   }
 }

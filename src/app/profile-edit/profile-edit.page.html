@@ -8,8 +8,14 @@
 </ion-header>
 
 <ion-content class="ion-padding">
+  <!-- Loader mientras se carga la información -->
+  <div class="loading-container" *ngIf="loading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Cargando información...</p>
+  </div>
+
   <!-- Perfil del usuario -->
-  <ng-container *ngIf="currentUser">
+  <ng-container *ngIf="currentUser && !loading">
     <!-- Sección de foto de perfil -->
     <div class="profile-photo-container">
       <ion-img 
@@ -48,7 +54,7 @@
             Nombre
           </ion-label>
           <ion-input 
-            [(ngModel)]="currentUser.name" 
+            [(ngModel)]="currentUser.firstName" 
             placeholder="Ingrese su nombre"
             type="text">
           </ion-input>
@@ -90,7 +96,7 @@
   </ng-container>
 
   <!-- Mensaje de error si no hay usuario -->
-  <ion-card *ngIf="!currentUser" class="error-card">
+  <ion-card *ngIf="!currentUser && !loading" class="error-card">
     <ion-card-header>
       <ion-card-title>
         <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
@@ -98,17 +104,11 @@
       </ion-card-title>
     </ion-card-header>
     <ion-card-content>
-      <p>No se pudo cargar la información del usuario. Por favor, intente nuevamente más tarde.</p>
-      <ion-button expand="block" routerLink="/home" color="primary">
-        <ion-icon name="home-outline" slot="start"></ion-icon>
-        Volver al Inicio
+      <p>No se pudo cargar la información del usuario. Por favor, inicie sesión nuevamente.</p>
+      <ion-button expand="block" routerLink="/login" color="primary">
+        <ion-icon name="log-in-outline" slot="start"></ion-icon>
+        Ir a Iniciar Sesión
       </ion-button>
     </ion-card-content>
   </ion-card>
-
-  <!-- Loader mientras se carga la información -->
-  <div class="loading-container" *ngIf="loading">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Cargando información...</p>
-  </div>
 </ion-content>

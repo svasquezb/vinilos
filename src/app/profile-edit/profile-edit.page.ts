@@ -1,12 +1,19 @@
 import { Component, OnInit } from '@angular/core';
 import { NavController, ToastController, LoadingController } from '@ionic/angular';
+import { DatabaseService } from '../services/database.service';
+import { firstValueFrom } from 'rxjs';
 
 interface User {
+  id?: number;
   email: string;
-  name: string;
+  firstName: string;
   lastName: string;
-  address: string;
-  photo: string;
+  password?: string;
+  phoneNumber?: string;
+  role?: string;
+  address?: string;
+  photo?: string;
+  createdAt?: string;
 }
 
 @Component({
@@ -15,19 +22,16 @@ interface User {
   styleUrls: ['./profile-edit.page.scss'],
 })
 export class ProfileEditPage implements OnInit {
-  users: User[] = [
-    { email: 'user@example.com', name: 'Normal', lastName: 'User', address: 'User St', photo: '' }
-  ];
-  
   currentUser: User | null = null;
-  newPassword: string = '';
   loading: boolean = false;
   photoLoading: boolean = false;
+  originalUser: User | null = null;
 
   constructor(
     private navCtrl: NavController,
     private toastController: ToastController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private databaseService: DatabaseService
   ) {}
 
   ngOnInit() {
@@ -37,15 +41,35 @@ export class ProfileEditPage implements OnInit {
   async loadCurrentUser() {
     this.loading = true;
     
-    // Simulamos una carga asíncrona con un usuario por defecto
-    setTimeout(() => {
-      this.currentUser = this.users[0];
+    try {
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        this.currentUser = {
+          id: userData.id,
+          email: userData.email,
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          address: userData.address || '',
+          photo: userData.photo || '',
+          role: userData.role || 'user',
+          phoneNumber: userData.phoneNumber || ''
+        };
+        this.originalUser = { ...this.currentUser };
+      } else {
+        await this.presentToast('Debe iniciar sesión para acceder a esta página');
+        this.navCtrl.navigateRoot('/login');
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+      await this.presentToast('Error al cargar los datos del usuario');
+    } finally {
       this.loading = false;
-    }, 1000);
+    }
   }
 
   async saveUser() {
-    if (!this.currentUser) {
+    if (!this.currentUser || !this.currentUser.id) {
       await this.presentToast('Error: No hay usuario para guardar');
       return;
     }
@@ -53,35 +77,33 @@ export class ProfileEditPage implements OnInit {
     const loading = await this.presentLoading('Guardando cambios...');
 
     try {
-      const index = this.users.findIndex(u => u.email === this.currentUser?.email);
-      if (index > -1) {
-        this.users[index] = { ...this.currentUser };
-        await this.presentToast('Perfil actualizado con éxito.');
+      const result = await firstValueFrom(
+        this.databaseService.updateUser({
+          id: this.currentUser.id,
+          firstName: this.currentUser.firstName,
+          lastName: this.currentUser.lastName,
+          address: this.currentUser.address,
+          phoneNumber: this.currentUser.phoneNumber
+        })
+      );
+
+      if (result.success) {
+        // Actualizar localStorage
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          const updatedUser = { ...userData, ...this.currentUser };
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        }
+
+        this.originalUser = { ...this.currentUser };
+        await this.presentToast('Perfil actualizado con éxito');
       } else {
-        this.users.push({ ...this.currentUser });
-        await this.presentToast('Perfil creado con éxito.');
+        throw new Error(result.error || 'Error al actualizar el perfil');
       }
     } catch (error) {
-      await this.presentToast('Error al guardar los cambios.');
-    } finally {
-      loading.dismiss();
-    }
-  }
-
-  async updatePassword() {
-    if (!this.newPassword.trim()) {
-      await this.presentToast('Por favor, ingrese una nueva contraseña.');
-      return;
-    }
-
-    const loading = await this.presentLoading('Actualizando contraseña...');
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulación
-      await this.presentToast('Contraseña actualizada con éxito.');
-      this.newPassword = '';
-    } catch (error) {
-      await this.presentToast('Error al actualizar la contraseña.');
+      console.error('Error saving user:', error);
+      await this.presentToast('Error al guardar los cambios');
     } finally {
       loading.dismiss();
     }
@@ -96,25 +118,50 @@ export class ProfileEditPage implements OnInit {
 
     try {
       const reader = new FileReader();
-      reader.onload = (e: any) => {
-        if (this.currentUser) {
-          this.currentUser.photo = e.target.result;
-          this.photoLoading = false;
-          loading.dismiss();
-          this.presentToast('Foto actualizada con éxito.');
+      reader.onload = async (e: any) => {
+        if (this.currentUser && this.currentUser.id) {
+          const photoData = e.target.result;
+          
+          const result = await firstValueFrom(
+            this.databaseService.updateUserPhoto(this.currentUser.id, photoData)
+          );
+
+          if (result.success) {
+            this.currentUser.photo = photoData;
+            
+            // Actualizar localStorage
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+              const userData = JSON.parse(storedUser);
+              userData.photo = photoData;
+              localStorage.setItem('currentUser', JSON.stringify(userData));
+            }
+            
+            await this.presentToast('Foto actualizada con éxito');
+          } else {
+            throw new Error('Error al actualizar la foto');
+          }
         }
       };
+      
       reader.onerror = () => {
-        this.photoLoading = false;
-        loading.dismiss();
-        this.presentToast('Error al cargar la imagen.');
+        throw new Error('Error al leer el archivo');
       };
+      
       reader.readAsDataURL(file);
     } catch (error) {
+      console.error('Error updating photo:', error);
+      await this.presentToast('Error al procesar la imagen');
+    } finally {
       this.photoLoading = false;
       loading.dismiss();
-      await this.presentToast('Error al procesar la imagen.');
     }
+  }
+
+  hasUnsavedChanges(): boolean {
+    if (!this.currentUser || !this.originalUser) return false;
+    
+    return JSON.stringify(this.currentUser) !== JSON.stringify(this.originalUser);
   }
 
   async presentToast(message: string) {

@@ -26,14 +26,14 @@ export class RegisterPage {
     if (!this.validateFields()) {
       return;
     }
-
+  
     const loading = await this.loadingController.create({
       message: 'Registrando usuario...'
     });
-
+  
     try {
       await loading.present();
-
+  
       // Verificar si el email existe
       const emailExists = await firstValueFrom(this.databaseService.checkEmailExists(this.email));
       
@@ -42,7 +42,7 @@ export class RegisterPage {
         await this.presentToast('Este correo electrónico ya está registrado', 'warning');
         return;
       }
-
+  
       // Registrar usuario
       const result = await firstValueFrom(this.databaseService.registerUser({
         firstName: this.firstName,
@@ -50,19 +50,39 @@ export class RegisterPage {
         email: this.email,
         password: this.password
       }));
-
-      await loading.dismiss();
-
+  
+      console.log('Registration result:', result);
+  
       if (result.success) {
+        // Guardar en localStorage
+        const userToStore = {
+          id: result.userId,
+          firstName: this.firstName,
+          lastName: this.lastName,
+          email: this.email,
+          role: 'user',
+          createdAt: new Date().toISOString()
+        };
+  
+        console.log('Storing user data:', userToStore);
+        localStorage.setItem('currentUser', JSON.stringify(userToStore));
+  
         await this.presentToast('Registro exitoso', 'success');
-        this.navCtrl.navigateRoot('/home');
+        this.clearFields();
+        
+        // Esperar un momento antes de navegar
+        setTimeout(() => {
+          this.navCtrl.navigateRoot('/home');
+        }, 500);
       } else {
-        await this.presentToast('Error en el registro: ' + (result.error || 'Error desconocido'), 'danger');
+        console.error('Registration failed:', result);
+        await this.presentToast(result.error || 'Error en el registro', 'danger');
       }
     } catch (error) {
       console.error('Error en el registro:', error);
-      await loading.dismiss();
       await this.presentToast('Error en el registro. Por favor, intente nuevamente.', 'danger');
+    } finally {
+      await loading.dismiss();
     }
   }
 
@@ -105,6 +125,14 @@ export class RegisterPage {
     return nameRegex.test(name);
   }
 
+  private clearFields(): void {
+    this.email = '';
+    this.password = '';
+    this.confirmPassword = '';
+    this.firstName = '';
+    this.lastName = '';
+  }
+
   async presentToast(message: string, color: string) {
     const toast = await this.toastController.create({
       message: message,
@@ -113,5 +141,15 @@ export class RegisterPage {
       color: color
     });
     await toast.present();
+  }
+
+  // Método auxiliar para debugging
+  private logRegistrationAttempt(): void {
+    console.log('Attempting registration with:', {
+      email: this.email,
+      firstName: this.firstName,
+      lastName: this.lastName,
+      passwordLength: this.password.length
+    });
   }
 }
