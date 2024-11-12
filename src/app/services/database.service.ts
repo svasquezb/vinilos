@@ -91,17 +91,19 @@ export class DatabaseService {
         db = await this.sqlite.retrieveConnection(dbName, false);
       } else {
         console.log('Creating new database connection');
-        db = await this.sqlite.createConnection(dbName, false, "no-encryption", 1, false);
-        
-        // Solo crear tablas e insertar datos si es una nueva conexión
-        await db.open();
-        this.database = db;
-        await this.createTables();
-        await this.insertSeedData().toPromise();
+        db = await this.sqlite.createConnection(
+          dbName,
+          false,
+          "no-encryption",
+          1,
+          false
+        );
       }
   
       await db.open();
       this.database = db;
+      await this.createTables(); // Ahora createTables verifica si necesita crear las tablas
+      
       this.dbReady.next(true);
       console.log('Database initialized successfully');
     } catch (error) {
@@ -113,24 +115,40 @@ export class DatabaseService {
 
   private async createTables(): Promise<void> {
     try {
-      const dropTables = [
-        'DROP TABLE IF EXISTS Orders;',
-        'DROP TABLE IF EXISTS Vinyls;',
-        'DROP TABLE IF EXISTS Users;'
-      ];
-
-      for (const sql of dropTables) {
-        await this.database.execute(sql);
+      // Verificar si las tablas ya existen
+      const tablesExist = await this.checkTablesExist();
+      
+      if (!tablesExist) {
+        console.log('Creating tables for first time');
+        await this.database.execute(this.tableUsers);
+        await this.database.execute(this.tableVinyls);
+        await this.database.execute(this.tableOrders);
+        
+        // Solo insertar datos de ejemplo si es la primera vez
+        await this.insertSeedData().toPromise();
+      } else {
+        console.log('Tables already exist');
       }
-
-      await this.database.execute(this.tableUsers);
-      await this.database.execute(this.tableVinyls);
-      await this.database.execute(this.tableOrders);
-
-      console.log('Tables created successfully');
+      
+      console.log('Tables setup completed successfully');
     } catch (error) {
-      console.error('Error creating tables:', error);
+      console.error('Error in createTables:', error);
       throw error;
+    }
+  }
+
+  private async checkTablesExist(): Promise<boolean> {
+    try {
+      const result = await this.database.query(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name IN ('Users', 'Vinyls', 'Orders');
+      `);
+      
+      const existingTables = result.values?.length || 0;
+      return existingTables === 3; // Retorna true si existen las 3 tablas
+    } catch (error) {
+      console.error('Error checking tables:', error);
+      return false;
     }
   }
 
@@ -195,89 +213,136 @@ export class DatabaseService {
   }
 
   registerUser(userData: RegisterUserData): Observable<any> {
-    console.log('Starting user registration process:', userData);
-    return this.getDatabaseState().pipe(
-      switchMap(ready => {
-        if (!ready) {
-          console.error('Database not ready during registration');
-          throw new Error('Database not ready');
-        }
+    console.log('Iniciando registro de usuario:', userData);
   
-        const query = `INSERT INTO Users 
-          (firstName, lastName, email, password, role, createdAt) 
-          VALUES (?, ?, ?, ?, ?, datetime('now'))`;
-        
+    return this.getDatabaseState().pipe(
+      switchMap(() => {
+        const query = `
+          INSERT INTO Users (
+            firstName, 
+            lastName, 
+            email, 
+            password, 
+            role, 
+            createdAt
+          ) VALUES (?, ?, ?, ?, 'user', datetime('now'))
+        `;
+  
         return this.executeSQL(query, [
           userData.firstName,
           userData.lastName,
           userData.email,
-          userData.password,
-          'user'
+          userData.password
         ]);
       }),
       map(result => {
-        console.log('Database insert result:', result);
-        
-        // Generar un ID si no hay uno de la base de datos
-        const userId = result?.changes?.lastId || Math.floor(Date.now() / 1000);
-        
+        if (result.changes) {
+          return {
+            success: true,
+            userId: result.changes.lastId,
+            user: {
+              id: result.changes.lastId,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              email: userData.email,
+              role: 'user'
+            }
+          };
+        }
         return {
           success: true,
-          userId: userId,
           user: {
-            id: userId,
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
-            role: 'user',
-            createdAt: new Date().toISOString()
+            role: 'user'
           }
         };
       }),
-      tap(response => {
-        console.log('Registration response:', response);
-      }),
       catchError(error => {
-        console.error('Error in registration:', error);
-        if (error.message?.includes('UNIQUE constraint failed')) {
+        console.error('Error en registro:', error);
+        if (error.message?.includes('UNIQUE constraint')) {
           return of({
             success: false,
-            error: 'Este correo electrónico ya está registrado'
+            error: 'El email ya está registrado'
           });
         }
         return of({
           success: false,
-          error: error.message || 'Error desconocido en el registro'
+          error: 'Error al registrar usuario'
+        });
+      })
+    );
+  }
+  
+  
+  // Método para verificar credenciales
+  loginUser(email: string, password: string): Observable<any> {
+    console.log('Intentando login con email:', email);
+    
+    const query = `
+      SELECT * FROM Users 
+      WHERE email = ? AND password = ?
+      LIMIT 1
+    `;
+  
+    return this.getDatabaseState().pipe(
+      switchMap(ready => {
+        if (!ready) {
+          throw new Error('Base de datos no está lista');
+        }
+        return this.executeSQL(query, [email, password]);
+      }),
+      map(result => {
+        console.log('Resultado consulta login:', result);
+        
+        // Verificar si hay resultados
+        if (result && result.values && result.values.length > 0) {
+          const user = result.values[0];
+          return {
+            success: true,
+            user: {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              role: user.role
+            }
+          };
+        }
+  
+        // Si no hay resultados, retornar error
+        return {
+          success: false,
+          error: 'Credenciales incorrectas'
+        };
+      }),
+      catchError(error => {
+        console.error('Error en login:', error);
+        return of({
+          success: false,
+          error: 'Error al iniciar sesión'
         });
       })
     );
   }
 
-  loginUser(email: string, password: string): Observable<any> {
-    console.log('Attempting login for:', email);
-    return this.executeSQL(
-      'SELECT * FROM Users WHERE email = ? AND password = ?',
-      [email, password]
-    ).pipe(
-      map(data => {
-        console.log('Login query result:', data);
-        if (data.values && data.values.length > 0) {
-          return {
-            success: true,
-            user: data.values[0] as UserDBRecord
-          };
-        }
-        return {
-          success: false,
-          error: 'Credenciales inválidas'
-        };
-      }),
-      catchError(error => {
-        console.error('Error in login:', error);
-        return of({
-          success: false,
-          error: error.message || 'Error en el inicio de sesión'
-        });
+  checkUsersTable(): Observable<any> {
+    return this.executeSQL(`
+      SELECT sql FROM sqlite_master 
+      WHERE type='table' AND name='Users';
+    `).pipe(
+      tap(result => {
+        console.log('Estructura de la tabla Users:', result);
+      })
+    );
+  }
+
+  getUsersCount(): Observable<number> {
+    return this.executeSQL('SELECT COUNT(*) as count FROM Users').pipe(
+      map(result => {
+        console.log('Conteo de usuarios:', result);
+        return result.values?.[0]?.count || 0;
       })
     );
   }

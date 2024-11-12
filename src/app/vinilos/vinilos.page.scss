@@ -57,13 +57,43 @@ ion-searchbar.custom {
   }
 }
 
+// Grid Layout
 ion-grid {
   padding: 16px;
+  
+  ion-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: -8px;
+  }
+  
+  ion-col {
+    padding: 8px;
+    display: flex;
+    
+    @media (min-width: 768px) {
+      &[size-md="4"] {
+        flex: 0 0 33.333333%;
+        max-width: 33.333333%;
+      }
+    }
+    
+    @media (min-width: 992px) {
+      &[size-lg="3"] {
+        flex: 0 0 25%;
+        max-width: 25%;
+      }
+    }
+  }
 }
 
-// Estilo de las cards
+// Card Styles
 ion-card {
-  margin: 8px;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
   @include vintage-border;
   background-color: $card-background;
@@ -75,29 +105,55 @@ ion-card {
     transform: translateY(-5px);
   }
 
-  img {
-    max-height: 220px;
-    object-fit: cover;
+  .image-container {
+    position: relative;
+    padding-top: 100%;
     width: 100%;
-    filter: sepia(20%);
+    overflow: hidden;
+    background-color: darken($card-background, 5%);
+
+    img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: sepia(20%);
+    }
   }
 
   ion-card-header {
     padding: 16px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background-color: $card-background;
   }
 
   ion-card-title {
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: 600;
     color: $text-color;
     font-family: 'Playfair Display', serif;
     margin-bottom: 8px;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 2.4em;
   }
 
   ion-card-subtitle {
-    font-size: 1em;
+    font-size: 0.9em;
     color: $accent-color;
     font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -118,6 +174,7 @@ ion-modal {
   }
   
   ion-content {
+    --background: #{$background-color};
     --padding-top: 24px;
     --padding-bottom: 24px;
     --padding-start: 24px;
@@ -140,14 +197,14 @@ ion-modal {
   }
   
   ion-segment {
-    margin-top: 24px;
-    margin-bottom: 24px;
+    margin: 24px 0;
     --background: #{$card-background};
     
     ion-segment-button {
       --color: #{$text-color};
       --color-checked: #{$light-text-color};
       --background-checked: #{$accent-color};
+      --indicator-color: #{$primary-color};
       font-family: 'Georgia', serif;
     }
   }
@@ -157,6 +214,7 @@ ion-modal {
     font-size: 16px;
     line-height: 1.6;
     margin-bottom: 16px;
+    font-family: 'Georgia', serif;
   }
 
   h3 {
@@ -170,9 +228,11 @@ ion-modal {
   ol {
     padding-left: 24px;
     color: $text-color;
+    margin-bottom: 20px;
 
     li {
       margin-bottom: 8px;
+      font-family: 'Georgia', serif;
     }
   }
   
@@ -182,6 +242,7 @@ ion-modal {
       font-size: 22px;
       font-weight: bold;
       margin-top: 24px;
+      font-family: 'Playfair Display', serif;
     }
 
     p {
@@ -197,9 +258,44 @@ ion-modal {
     --border-radius: 0;
     @include vintage-border;
     font-family: 'Georgia', serif;
+    height: 48px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+
+    &:hover:not([disabled]) {
+      --background: #{$primary-color};
+    }
 
     &[disabled] {
-      opacity: 0.5;
+      --background: #{$secondary-color};
+      opacity: 0.7;
+    }
+  }
+}
+
+// Responsive 
+@media (max-width: 576px) {
+  ion-card {
+    ion-card-title {
+      font-size: 1em;
+    }
+    
+    ion-card-subtitle {
+      font-size: 0.8em;
+    }
+  }
+  
+  ion-modal {
+    h2 {
+      font-size: 20px;
+    }
+    
+    h3 {
+      font-size: 18px;
+    }
+    
+    p {
+      font-size: 14px;
     }
   }
 }

@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { NavController, ToastController, LoadingController } from '@ionic/angular';
 import { DatabaseService } from '../services/database.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -23,21 +24,22 @@ export class LoginPage {
       await this.presentToast('Por favor, ingrese email y contraseña', 'warning');
       return;
     }
-
+  
     const loading = await this.loadingController.create({
       message: 'Iniciando sesión...'
     });
     await loading.present();
-
+  
     try {
       const result = await this.databaseService.loginUser(this.email, this.password).toPromise();
-      
+  
       if (result.success) {
-        // Guardar datos del usuario en localStorage
+        // Guardar el usuario en localStorage
         localStorage.setItem('currentUser', JSON.stringify(result.user));
-        
+  
         await this.presentToast('Bienvenido!', 'success');
-        this.navCtrl.navigateRoot('/home');
+        // Navegar a la página de inicio
+        await this.navCtrl.navigateRoot('/home');
       } else {
         await this.presentToast('Credenciales inválidas', 'danger');
       }
@@ -45,7 +47,7 @@ export class LoginPage {
       console.error('Error en login:', error);
       await this.presentToast('Error al iniciar sesión', 'danger');
     } finally {
-      loading.dismiss();
+      await loading.dismiss();
     }
   }
 
@@ -56,7 +58,7 @@ export class LoginPage {
       position: 'bottom',
       color: color
     });
-    toast.present();
+    await toast.present();
   }
 
   goToRegister() {
