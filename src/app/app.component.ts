@@ -1,116 +1,131 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { NavController, MenuController } from '@ionic/angular';
+import { DatabaseService } from './services/database.service';
+import { Subscription } from 'rxjs';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
-import { DatabaseService } from './services/database.service';
 
 @Component({
   selector: 'app-root',
   templateUrl: 'app.component.html',
   styleUrls: ['app.component.scss']
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   public isLoggedIn: boolean = false;
   public userRole: string = '';
   public userName: string = '';
+  private sessionSubscription?: Subscription;
+  private routerSubscription?: Subscription;
 
   constructor(
     private navCtrl: NavController,
     private menuCtrl: MenuController,
-    private router: Router,
-    private databaseService: DatabaseService
-  ) {
-    // Suscribirse a los cambios de ruta
-    this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd)
-    ).subscribe(() => {
-      this.checkAuthStatus();
-    });
-  }
+    private databaseService: DatabaseService,
+    private router: Router
+  ) {}
 
   ngOnInit() {
-    // Verificar estado inicial
-    this.checkAuthStatus();
-    
-    // Agregar listener para cambios en localStorage
-    window.addEventListener('storage', this.onStorageChange.bind(this));
+    // Suscribirse a los cambios de sesión
+    this.sessionSubscription = this.databaseService.getActiveSession()
+      .subscribe(user => {
+        console.log('Estado de sesión actualizado:', user);
+        if (user) {
+          this.updateAuthState(true, user);
+        } else {
+          this.clearAuthState();
+        }
+      });
+
+    // Suscribirse a los cambios de ruta
+    this.routerSubscription = this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: any) => {
+      this.handleRouteChange(event.url);
+    });
+
+    // Verificar sesión inicial
+    this.checkInitialSession();
   }
 
-  private checkAuthStatus() {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const currentUser = JSON.parse(storedUser);
-        this.updateAuthState(true, currentUser);
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        this.clearAuthState();
-      }
+  private async checkInitialSession() {
+    const currentUser = this.databaseService.getCurrentUser();
+    console.log('Usuario actual:', currentUser);
+    if (currentUser) {
+      this.updateAuthState(true, currentUser);
+    }
+  }
+
+  private handleRouteChange(url: string) {
+    // Rutas que requieren autenticación
+    const protectedRoutes = ['/profile-edit', '/cart', '/vinilo-crud'];
+    
+    if (protectedRoutes.some(route => url.includes(route)) && !this.isLoggedIn) {
+      console.log('Intento de acceso a ruta protegida sin autenticación');
+      this.router.navigate(['/login']);
+    }
+  }
+
+  private updateAuthState(isLoggedIn: boolean, user?: any) {
+    console.log('Actualizando estado de autenticación:', { isLoggedIn, user });
+    this.isLoggedIn = isLoggedIn;
+    if (user) {
+      this.userRole = user.role || 'user';
+      this.userName = user.firstName || '';
+      console.log('Estado actualizado:', {
+        isLoggedIn: this.isLoggedIn,
+        role: this.userRole,
+        name: this.userName
+      });
     } else {
       this.clearAuthState();
     }
   }
 
-  private updateAuthState(isLoggedIn: boolean, user?: any) {
-    this.isLoggedIn = isLoggedIn;
-    if (user) {
-      this.userRole = user.role || '';
-      this.userName = user.firstName || '';
-    } else {
-      this.userRole = '';
-      this.userName = '';
-    }
-  }
-
   private clearAuthState() {
+    console.log('Limpiando estado de autenticación');
     this.isLoggedIn = false;
     this.userRole = '';
     this.userName = '';
-  }
-
-  private onStorageChange(e: StorageEvent) {
-    if (e.key === 'currentUser') {
-      if (e.newValue) {
-        try {
-          const currentUser = JSON.parse(e.newValue);
-          this.updateAuthState(true, currentUser);
-        } catch (error) {
-          console.error('Error parsing storage change:', error);
-          this.clearAuthState();
-        }
-      } else {
-        this.clearAuthState();
-      }
-    }
   }
 
   get isAdmin(): boolean {
     return this.userRole === 'admin';
   }
 
-  login(user: { role: string, firstName: string }) {
-    this.updateAuthState(true, user);
+  async navigateToPage(url: string) {
+    if (url === '/profile-edit' && !this.isLoggedIn) {
+      console.log('Intento de acceso a perfil sin autenticación');
+      this.router.navigate(['/login']);
+      return;
+    }
+    await this.closeMenu();
+    this.router.navigate([url]);
   }
 
   async logout() {
-    // Solo eliminar la sesión actual
-    localStorage.removeItem('currentUser');
-    
-    // Limpiar el estado de la aplicación
-    this.clearAuthState();
-    
-    // Cerrar el menú
-    await this.closeMenu();
-    
-    // Navegar al home
-    this.router.navigate(['/home'], { replaceUrl: true });
+    try {
+      this.databaseService.logout();
+      await this.closeMenu();
+      this.router.navigate(['/login']);
+    } catch (error) {
+      console.error('Error en logout:', error);
+    }
   }
 
   async closeMenu() {
-    await this.menuCtrl.close();
+    try {
+      await this.menuCtrl.close();
+    } catch (error) {
+      console.error('Error cerrando menú:', error);
+    }
   }
 
   ngOnDestroy() {
-    window.removeEventListener('storage', this.onStorageChange.bind(this));
+    if (this.sessionSubscription) {
+      this.sessionSubscription.unsubscribe();
+    }
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 }

@@ -15,18 +15,18 @@
     </ion-toolbar>
   </ion-header>
 
-  <ion-content>
+  <div class="content-wrapper">
     <ion-grid>
       <ion-row>
         <ion-col size="12">
           <!-- Loading spinner -->
-          <div class="loading-container" *ngIf="!vinilosDestacados.length">
+          <div class="loading-container" *ngIf="loading">
             <ion-spinner></ion-spinner>
             <p>Cargando vinilos destacados...</p>
           </div>
 
           <!-- Vinilos container -->
-          <div class="vinilos-scroll-container" *ngIf="vinilosDestacados.length">
+          <div class="vinilos-scroll-container" *ngIf="!loading && vinilosDestacados.length">
             <ion-card *ngFor="let vinilo of vinilosDestacados" class="vinilo-card" (click)="verDetalles(vinilo)">
               <img [src]="vinilo.imagen" [alt]="vinilo.titulo">
               <ion-card-header>
@@ -36,10 +36,15 @@
               </ion-card-header>
             </ion-card>
           </div>
+
+          <!-- No results message -->
+          <div class="no-results" *ngIf="!loading && !vinilosDestacados.length">
+            <p>No se encontraron vinilos destacados</p>
+          </div>
         </ion-col>
       </ion-row>
     </ion-grid>
-  </ion-content>
+  </div>
 
   <!-- Modal de detalles -->
   <ion-modal [isOpen]="!!viniloSeleccionado">
@@ -80,7 +85,6 @@
           </ol>
         </div>
 
-       <!-- En la sección del modal, cambia estas partes -->
         <ion-text>
           <h3>Precio: {{ viniloSeleccionado?.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</h3>
         </ion-text>

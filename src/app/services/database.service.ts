@@ -115,24 +115,51 @@ export class DatabaseService {
 
   private async createTables(): Promise<void> {
     try {
-      // Verificar si las tablas ya existen
-      const tablesExist = await this.checkTablesExist();
+      const checkTableQuery = `
+        SELECT sql FROM sqlite_master 
+        WHERE type='table' AND name='Users';
+      `;
       
-      if (!tablesExist) {
-        console.log('Creating tables for first time');
-        await this.database.execute(this.tableUsers);
-        await this.database.execute(this.tableVinyls);
-        await this.database.execute(this.tableOrders);
+      const tableResult = await this.database.query(checkTableQuery);
+      const needsRecreation = !tableResult.values?.length || 
+                             !tableResult.values[0].sql.includes('photo');
+  
+      if (needsRecreation) {
+        console.log('Recreando tabla Users con estructura actualizada');
         
-        // Solo insertar datos de ejemplo si es la primera vez
+        // Eliminar tabla existente si existe
+        await this.database.execute('DROP TABLE IF EXISTS Users;');
+        
+        // Crear tabla con nueva estructura
+        const createUsersTable = `
+          CREATE TABLE IF NOT EXISTS Users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            firstName TEXT NOT NULL,
+            lastName TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            phoneNumber TEXT,
+            role TEXT DEFAULT 'user',
+            address TEXT,
+            photo BLOB,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `;
+        
+        await this.database.execute(createUsersTable);
+        console.log('Tabla Users creada exitosamente');
+        
+        // Insertar datos de ejemplo después de recrear la tabla
         await this.insertSeedData().toPromise();
-      } else {
-        console.log('Tables already exist');
       }
-      
-      console.log('Tables setup completed successfully');
+  
+      // Crear otras tablas si no existen
+      await this.database.execute(this.tableVinyls);
+      await this.database.execute(this.tableOrders);
+  
+      console.log('Todas las tablas creadas/verificadas exitosamente');
     } catch (error) {
-      console.error('Error in createTables:', error);
+      console.error('Error creando tablas:', error);
       throw error;
     }
   }
@@ -153,16 +180,18 @@ export class DatabaseService {
   }
 
   private readonly tableUsers: string = `
-    CREATE TABLE IF NOT EXISTS Users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      firstName TEXT NOT NULL,
-      lastName TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      phoneNumber TEXT,
-      role TEXT DEFAULT 'user',
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    );`;
+  CREATE TABLE IF NOT EXISTS Users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    firstName TEXT NOT NULL,
+    lastName TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    phoneNumber TEXT,
+    role TEXT DEFAULT 'user',
+    address TEXT,
+    photo TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  );`;
 
   private readonly tableVinyls: string = `
     CREATE TABLE IF NOT EXISTS Vinyls (
@@ -275,57 +304,69 @@ export class DatabaseService {
     );
   }
   
-  
   // Método para verificar credenciales
-  loginUser(email: string, password: string): Observable<any> {
-    console.log('Intentando login con email:', email);
-    
-    const query = `
-      SELECT * FROM Users 
-      WHERE email = ? AND password = ?
-      LIMIT 1
-    `;
+  private currentSession = new BehaviorSubject<any>(null);
+
+getActiveSession(): Observable<any> {
+  return this.currentSession.asObservable();
+}
+
+getCurrentUser(): any {
+  return this.currentSession.getValue();
+}
+
+loginUser(email: string, password: string): Observable<any> {
+  console.log('Intentando login con:', email);
   
-    return this.getDatabaseState().pipe(
-      switchMap(ready => {
-        if (!ready) {
-          throw new Error('Base de datos no está lista');
-        }
-        return this.executeSQL(query, [email, password]);
-      }),
-      map(result => {
-        console.log('Resultado consulta login:', result);
-        
-        // Verificar si hay resultados
-        if (result && result.values && result.values.length > 0) {
-          const user = result.values[0];
-          return {
-            success: true,
-            user: {
-              id: user.id,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              email: user.email,
-              role: user.role
-            }
-          };
-        }
-  
-        // Si no hay resultados, retornar error
+  const query = `
+    SELECT * FROM Users 
+    WHERE email = ? AND password = ?
+    LIMIT 1
+  `;
+
+  return this.getDatabaseState().pipe(
+    switchMap(ready => {
+      if (!ready) {
+        throw new Error('Base de datos no está lista');
+      }
+      return this.executeSQL(query, [email, password]);
+    }),
+    map(result => {
+      console.log('Resultado login:', result);
+      
+      if (result && result.values && result.values.length > 0) {
+        const user = result.values[0];
+        this.currentSession.next(user);
         return {
-          success: false,
-          error: 'Credenciales incorrectas'
+          success: true,
+          user: user
         };
-      }),
-      catchError(error => {
-        console.error('Error en login:', error);
-        return of({
-          success: false,
-          error: 'Error al iniciar sesión'
-        });
-      })
-    );
-  }
+      }
+      
+      this.currentSession.next(null);
+      return {
+        success: false,
+        error: 'Credenciales incorrectas'
+      };
+    }),
+    catchError(error => {
+      console.error('Error en login:', error);
+      this.currentSession.next(null);
+      return of({
+        success: false,
+        error: 'Error al iniciar sesión'
+      });
+    })
+  );
+}
+
+logout(): void {
+  this.currentSession.next(null);
+}
+
+isAuthenticated(): boolean {
+  return this.currentSession.getValue() !== null;
+}
 
   checkUsersTable(): Observable<any> {
     return this.executeSQL(`
@@ -464,6 +505,8 @@ export class DatabaseService {
   }
   
   updateUser(userData: any): Observable<any> {
+    console.log('Actualizando usuario:', userData);
+    
     const query = `
       UPDATE Users 
       SET firstName = ?,
@@ -472,7 +515,7 @@ export class DatabaseService {
           phoneNumber = ?
       WHERE id = ?
     `;
-    
+  
     return this.executeSQL(query, [
       userData.firstName,
       userData.lastName,
@@ -480,37 +523,76 @@ export class DatabaseService {
       userData.phoneNumber || null,
       userData.id
     ]).pipe(
-      map(result => ({
-        success: true,
-        changes: result.changes
-      })),
+      map(result => {
+        console.log('Resultado actualización:', result);
+        if (result.changes) {
+          // Actualizar sesión activa
+          const currentSession = this.currentSession.getValue();
+          if (currentSession) {
+            this.currentSession.next({
+              ...currentSession,
+              ...userData
+            });
+          }
+          return {
+            success: true,
+            changes: result.changes
+          };
+        }
+        return {
+          success: false,
+          error: 'No se pudo actualizar el usuario'
+        };
+      }),
       catchError(error => {
-        console.error('Error updating user:', error);
+        console.error('Error en updateUser:', error);
         return of({
           success: false,
-          error: error.message || 'Error updating user'
+          error: error.message || 'Error al actualizar usuario'
         });
       })
     );
   }
   
+  
   updateUserPhoto(userId: number, photoData: string): Observable<any> {
-    return this.executeSQL(
-      'UPDATE Users SET photo = ? WHERE id = ?',
-      [photoData, userId]
-    ).pipe(
-      map(result => ({
-        success: true,
-        changes: result.changes
-      })),
+    console.log('Actualizando foto de usuario:', userId);
+    
+    const query = `
+      UPDATE Users 
+      SET photo = ?
+      WHERE id = ?
+    `;
+  
+    // Convertir la imagen a formato Base64 si no lo está ya
+    const photoToSave = photoData.startsWith('data:image') ? 
+      photoData : 
+      `data:image/jpeg;base64,${photoData}`;
+  
+    return from(this.database.run(query, [photoToSave, userId])).pipe(
+      map(result => {
+        console.log('Resultado actualización foto:', result);
+        const currentUser = this.currentSession.getValue();
+        if (currentUser) {
+          this.currentSession.next({
+            ...currentUser,
+            photo: photoToSave
+          });
+        }
+        return { success: true };
+      }),
       catchError(error => {
-        console.error('Error updating user photo:', error);
+        console.error('Error updating photo:', error);
         return of({
           success: false,
-          error: error.message || 'Error updating photo'
+          error: error.message || 'Error al actualizar foto'
         });
       })
     );
+  }
+
+  public executeQuerySQL(query: string, params?: any[]): Observable<SQLiteResponse> {
+    return this.executeSQL(query, params);
   }
 
   updateVinylStock(vinylId: number, newStock: number): Observable<boolean> {
@@ -526,19 +608,20 @@ export class DatabaseService {
     );
   }
 
-  insertSeedData(): Observable<boolean> {
-    console.log('Starting seed data insertion');
-    const users = [
-      { 
-        firstName: 'Usuario',
-        lastName: 'Ejemplo',
-        email: 'usuario@example.com',
-        password: '123456',
-        phoneNumber: '966189340',
-        role: 'user',
-        createdAt: '2021-07-01 10:00:00'
-      }
-    ];
+  private insertSeedData(): Observable<boolean> {
+    console.log('Insertando datos de ejemplo');
+    
+    const users = [{
+      firstName: 'Usuario',
+      lastName: 'Ejemplo',
+      email: 'usuario@example.com',
+      password: '123456',
+      phoneNumber: '966189340',
+      role: 'user',
+      address: null,
+      photo: null
+    }];
+    
   
     const products: Vinyl[] = [
       { 
@@ -658,23 +741,28 @@ export class DatabaseService {
     return from(Promise.all([
       ...users.map(user => 
         this.database.run(
-          'INSERT INTO Users (firstName, lastName, email, password, phoneNumber, role, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)', 
-          [user.firstName, user.lastName, user.email, user.password, user.phoneNumber, user.role, user.createdAt]
-        ).then(() => console.log(`User inserted: ${user.firstName}`))
+          `INSERT OR IGNORE INTO Users (
+            firstName, lastName, email, password, phoneNumber, role, address, photo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            user.firstName,
+            user.lastName,
+            user.email,
+            user.password,
+            user.phoneNumber,
+            user.role,
+            user.address,
+            user.photo
+          ]
+        )
       ),
-      ...products.map(vinyl => 
-        this.database.run(
-          'INSERT INTO Vinyls (titulo, artista, imagen, descripcion, tracklist, stock, precio, IsAvailable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-          [vinyl.titulo, vinyl.artista, vinyl.imagen, JSON.stringify(vinyl.descripcion), JSON.stringify(vinyl.tracklist), vinyl.stock, vinyl.precio, vinyl.IsAvailable ? 1 : 0]
-        ).then(() => console.log(`Vinyl inserted: ${vinyl.titulo}`))
-      )
     ])).pipe(
       map(() => {
-        console.log('Seed data inserted successfully');
+        console.log('Datos de ejemplo insertados exitosamente');
         return true;
       }),
       catchError(error => {
-        console.error('Error in seed data insertion:', error);
+        console.error('Error insertando datos de ejemplo:', error);
         return of(false);
       })
     );

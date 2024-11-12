@@ -18,41 +18,32 @@
         <p>Bienvenido, {{userName}}</p>
       </div>
 
-      <!-- Menú principal -->
       <ion-list>
         <!-- Items siempre visibles -->
-        <ion-item routerLink="/home" routerDirection="root" (click)="closeMenu()" routerLinkActive="selected">
+        <ion-item routerLink="/home" routerDirection="root" (click)="closeMenu()">
           <ion-icon name="home-outline" slot="start"></ion-icon>
           <ion-label>Inicio</ion-label>
         </ion-item>
         
-        <ion-item routerLink="/vinilos" routerDirection="root" (click)="closeMenu()" routerLinkActive="selected">
+        <ion-item routerLink="/vinilos" routerDirection="root" (click)="closeMenu()">
           <ion-icon name="disc-outline" slot="start"></ion-icon>
           <ion-label>Vinilos</ion-label>
         </ion-item>
-        
-        <ion-item routerLink="/cart" routerDirection="root" (click)="closeMenu()" routerLinkActive="selected">
-          <ion-icon name="cart-outline" slot="start"></ion-icon>
-          <ion-label>Carrito</ion-label>
-        </ion-item>
 
-        <!-- Login/Registro (solo si NO está logueado) -->
-        <ng-container *ngIf="!isLoggedIn">
-          <ion-item routerLink="/login" (click)="closeMenu()" routerLinkActive="selected">
-            <ion-icon name="log-in-outline" slot="start"></ion-icon>
-            <ion-label>Iniciar Sesión</ion-label>
-          </ion-item>
-        </ng-container>
-
-        <!-- Items solo para usuarios logueados -->
+        <!-- Items para usuarios logueados -->
         <ng-container *ngIf="isLoggedIn">
-          <ion-item routerLink="/profile-edit" (click)="closeMenu()" routerLinkActive="selected">
+          <ion-item routerLink="/cart" routerDirection="root" (click)="closeMenu()">
+            <ion-icon name="cart-outline" slot="start"></ion-icon>
+            <ion-label>Carrito</ion-label>
+          </ion-item>
+
+          <ion-item routerLink="/profile-edit" (click)="closeMenu()">
             <ion-icon name="person-outline" slot="start"></ion-icon>
             <ion-label>Editar Perfil</ion-label>
           </ion-item>
 
-          <ion-item routerLink="/vinilo-crud" routerDirection="root" (click)="closeMenu()" routerLinkActive="selected"
-                  *ngIf="isAdmin">
+          <!-- Item solo para admin -->
+          <ion-item *ngIf="isAdmin" routerLink="/vinilo-crud" routerDirection="root" (click)="closeMenu()">
             <ion-icon name="create-outline" slot="start"></ion-icon>
             <ion-label>Gestionar Vinilos</ion-label>
           </ion-item>
@@ -60,6 +51,19 @@
           <ion-item (click)="logout()" button>
             <ion-icon name="log-out-outline" slot="start"></ion-icon>
             <ion-label>Cerrar Sesión</ion-label>
+          </ion-item>
+        </ng-container>
+
+        <!-- Items para usuarios no logueados -->
+        <ng-container *ngIf="!isLoggedIn">
+          <ion-item routerLink="/login" (click)="closeMenu()">
+            <ion-icon name="log-in-outline" slot="start"></ion-icon>
+            <ion-label>Iniciar Sesión</ion-label>
+          </ion-item>
+
+          <ion-item routerLink="/register" (click)="closeMenu()">
+            <ion-icon name="person-add-outline" slot="start"></ion-icon>
+            <ion-label>Registrarse</ion-label>
           </ion-item>
         </ng-container>
       </ion-list>

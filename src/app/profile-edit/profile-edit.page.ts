@@ -34,28 +34,36 @@ export class ProfileEditPage implements OnInit {
     private databaseService: DatabaseService
   ) {}
 
-  ngOnInit() {
-    this.loadCurrentUser();
+  async ngOnInit() {
+    await this.loadCurrentUser();
+  }
+
+  async ionViewWillEnter() {
+    if (!this.currentUser) {
+      await this.loadCurrentUser();
+    }
   }
 
   async loadCurrentUser() {
     this.loading = true;
     
     try {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
+      const activeUser = this.databaseService.getCurrentUser();
+      console.log('Usuario activo:', activeUser);
+      
+      if (activeUser) {
         this.currentUser = {
-          id: userData.id,
-          email: userData.email,
-          firstName: userData.firstName || '',
-          lastName: userData.lastName || '',
-          address: userData.address || '',
-          photo: userData.photo || '',
-          role: userData.role || 'user',
-          phoneNumber: userData.phoneNumber || ''
+          id: activeUser.id,
+          email: activeUser.email,
+          firstName: activeUser.firstName || '',
+          lastName: activeUser.lastName || '',
+          address: activeUser.address || '',
+          photo: activeUser.photo || '',
+          role: activeUser.role || 'user',
+          phoneNumber: activeUser.phoneNumber || ''
         };
         this.originalUser = { ...this.currentUser };
+        console.log('Usuario cargado:', this.currentUser);
       } else {
         await this.presentToast('Debe iniciar sesión para acceder a esta página');
         this.navCtrl.navigateRoot('/login');
@@ -74,9 +82,15 @@ export class ProfileEditPage implements OnInit {
       return;
     }
 
+    if (!this.hasUnsavedChanges()) {
+      await this.presentToast('No hay cambios para guardar');
+      return;
+    }
+
     const loading = await this.presentLoading('Guardando cambios...');
 
     try {
+      console.log('Guardando usuario:', this.currentUser);
       const result = await firstValueFrom(
         this.databaseService.updateUser({
           id: this.currentUser.id,
@@ -88,14 +102,6 @@ export class ProfileEditPage implements OnInit {
       );
 
       if (result.success) {
-        // Actualizar localStorage
-        const storedUser = localStorage.getItem('currentUser');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          const updatedUser = { ...userData, ...this.currentUser };
-          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        }
-
         this.originalUser = { ...this.currentUser };
         await this.presentToast('Perfil actualizado con éxito');
       } else {
@@ -105,47 +111,40 @@ export class ProfileEditPage implements OnInit {
       console.error('Error saving user:', error);
       await this.presentToast('Error al guardar los cambios');
     } finally {
-      loading.dismiss();
+      await loading.dismiss();
     }
   }
 
   async onPhotoSelected(event: any) {
     const file = event.target.files[0];
-    if (!file || !this.currentUser) return;
-
+    if (!file || !this.currentUser?.id) return;
+  
+    if (file.size > 5000000) { // Maximo 5mb 
+      await this.presentToast('La imagen es demasiado grande. Máximo 5MB');
+      return;
+    }
+  
     this.photoLoading = true;
     const loading = await this.presentLoading('Cargando imagen...');
-
+  
     try {
       const reader = new FileReader();
       reader.onload = async (e: any) => {
-        if (this.currentUser && this.currentUser.id) {
+        if (this.currentUser?.id) {
           const photoData = e.target.result;
+          console.log('Subiendo foto para usuario:', this.currentUser.id);
           
           const result = await firstValueFrom(
             this.databaseService.updateUserPhoto(this.currentUser.id, photoData)
           );
-
+  
           if (result.success) {
             this.currentUser.photo = photoData;
-            
-            // Actualizar localStorage
-            const storedUser = localStorage.getItem('currentUser');
-            if (storedUser) {
-              const userData = JSON.parse(storedUser);
-              userData.photo = photoData;
-              localStorage.setItem('currentUser', JSON.stringify(userData));
-            }
-            
             await this.presentToast('Foto actualizada con éxito');
           } else {
-            throw new Error('Error al actualizar la foto');
+            throw new Error(result.error || 'Error al actualizar la foto');
           }
         }
-      };
-      
-      reader.onerror = () => {
-        throw new Error('Error al leer el archivo');
       };
       
       reader.readAsDataURL(file);
@@ -154,14 +153,19 @@ export class ProfileEditPage implements OnInit {
       await this.presentToast('Error al procesar la imagen');
     } finally {
       this.photoLoading = false;
-      loading.dismiss();
+      await loading.dismiss();
     }
   }
 
   hasUnsavedChanges(): boolean {
     if (!this.currentUser || !this.originalUser) return false;
     
-    return JSON.stringify(this.currentUser) !== JSON.stringify(this.originalUser);
+    return (
+      this.currentUser.firstName !== this.originalUser.firstName ||
+      this.currentUser.lastName !== this.originalUser.lastName ||
+      this.currentUser.address !== this.originalUser.address ||
+      this.currentUser.phoneNumber !== this.originalUser.phoneNumber
+    );
   }
 
   async presentToast(message: string) {

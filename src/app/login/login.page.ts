@@ -20,28 +20,26 @@ export class LoginPage {
   ) {}
 
   async login() {
-    if (!this.email || !this.password) {
-      await this.presentToast('Por favor, ingrese email y contraseña', 'warning');
+    if (!this.validateFields()) {
       return;
     }
-  
+
     const loading = await this.loadingController.create({
       message: 'Iniciando sesión...'
     });
-    await loading.present();
-  
+
     try {
-      const result = await this.databaseService.loginUser(this.email, this.password).toPromise();
-  
+      await loading.present();
+
+      const result = await firstValueFrom(
+        this.databaseService.loginUser(this.email, this.password)
+      );
+
       if (result.success) {
-        // Guardar el usuario en localStorage
-        localStorage.setItem('currentUser', JSON.stringify(result.user));
-  
-        await this.presentToast('Bienvenido!', 'success');
-        // Navegar a la página de inicio
-        await this.navCtrl.navigateRoot('/home');
+        await this.presentToast('¡Bienvenido!', 'success');
+        this.navCtrl.navigateRoot('/home', { replaceUrl: true });
       } else {
-        await this.presentToast('Credenciales inválidas', 'danger');
+        await this.presentToast(result.error || 'Credenciales incorrectas', 'danger');
       }
     } catch (error) {
       console.error('Error en login:', error);
@@ -49,6 +47,14 @@ export class LoginPage {
     } finally {
       await loading.dismiss();
     }
+  }
+
+  private validateFields(): boolean {
+    if (!this.email || !this.password) {
+      this.presentToast('Por favor, ingrese email y contraseña', 'warning');
+      return false;
+    }
+    return true;
   }
 
   async presentToast(message: string, color: string) {
@@ -59,9 +65,5 @@ export class LoginPage {
       color: color
     });
     await toast.present();
-  }
-
-  goToRegister() {
-    this.navCtrl.navigateForward('/register');
   }
 }
