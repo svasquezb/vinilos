@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CartService } from '../services/cart.service';
-import { NavController, ToastController } from '@ionic/angular';
+import { NavController, ToastController, LoadingController } from '@ionic/angular';
 import { DatabaseService } from '../services/database.service';
 import { Vinyl } from '../models/vinilos.model';
 import { firstValueFrom } from 'rxjs';
@@ -15,36 +15,48 @@ export class VinilosPage implements OnInit {
   vinilosFiltrados: Vinyl[] = [];
   viniloSeleccionado: Vinyl | null = null;
   mostrarDescripcionDetalle: 'descripcion' | 'tracklist' = 'descripcion';
+  loading = true;
 
   constructor(
     private cartService: CartService,
     private navCtrl: NavController,
     private databaseService: DatabaseService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private loadingController: LoadingController
   ) {}
-
   async ngOnInit() {
     await this.cargarVinilos();
   }
 
   async cargarVinilos() {
+    const loading = await this.loadingController.create({
+      message: 'Cargando vinilos...',
+      spinner: 'circular'
+    });
+    await loading.present();
+
     try {
       console.log('Iniciando carga de vinilos');
       const vinilosFromDB = await firstValueFrom(this.databaseService.getVinyls());
-      console.log('Vinilos obtenidos de la base de datos:', vinilosFromDB);
       
-      this.vinilos = vinilosFromDB || [];
-      this.vinilosFiltrados = this.vinilos;
+      console.log('Vinilos obtenidos:', vinilosFromDB);
       
-      if (this.vinilos.length === 0) {
-        console.log('No se encontraron vinilos en la base de datos');
-        await this.presentToast('No se encontraron vinilos en la base de datos.', 'warning');
-      } else {
-        console.log(`Se cargaron ${this.vinilos.length} vinilos`);
+      if (!vinilosFromDB || vinilosFromDB.length === 0) {
+        console.log('No se encontraron vinilos');
+        await this.presentToast('No se encontraron vinilos disponibles', 'warning');
+        return;
       }
+
+      this.vinilos = vinilosFromDB;
+      this.vinilosFiltrados = this.vinilos;
+      console.log(`Se cargaron ${this.vinilos.length} vinilos`);
+      
     } catch (error) {
       console.error('Error al cargar vinilos:', error);
-      await this.presentToast('Error al cargar vinilos. Por favor, intente más tarde.', 'danger');
+      await this.presentToast('Error al cargar los vinilos', 'danger');
+    } finally {
+      this.loading = false;
+      await loading.dismiss();
     }
   }
 

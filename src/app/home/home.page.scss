@@ -6,6 +6,8 @@ $background-color: #FFF8DC; // Cornsilk
 $card-background: #FAEBD7; // Antique White
 $text-color: #3E2723; // Dark Brown
 $light-text-color: #FFF8DC; // Cornsilk
+$success-color: #2E7D32; // Verde oscuro vintage
+$danger-color: #C62828; // Rojo oscuro vintage
 
 @mixin vintage-border {
   border: 2px solid $primary-color;
@@ -15,6 +17,23 @@ $light-text-color: #FFF8DC; // Cornsilk
 ion-content {
   --ion-background-color: #{$background-color};
   font-family: 'Georgia', serif;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  
+  ion-spinner {
+    margin-bottom: 1rem;
+    --color: #{$primary-color};
+  }
+
+  p {
+    color: $text-color;
+    font-style: italic;
+  }
 }
 
 ion-title {
@@ -93,6 +112,10 @@ ion-header ion-toolbar:nth-child(2) {
   &:hover {
     transform: translateY(-5px);
   }
+
+  &.out-of-stock {
+    opacity: 0.7;
+  }
   
   img {
     width: 100%;
@@ -104,7 +127,15 @@ ion-header ion-toolbar:nth-child(2) {
     flex-grow: 1; 
     display: flex;
     flex-direction: column;
-    justify-content: center; 
+    justify-content: center;
+
+    .precio {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: $primary-color;
+      margin: 0.5rem 0;
+      text-align: center;
+    }
   }
   
   ion-card-title {
@@ -120,6 +151,29 @@ ion-header ion-toolbar:nth-child(2) {
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  ion-badge {
+    margin: 8px auto;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Georgia', serif;
+  }
+}
+
+.no-results {
+  text-align: center;
+  padding: 2rem;
+  
+  ion-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: $accent-color;
+  }
+
+  p {
+    color: $text-color;
+    font-style: italic;
   }
 }
 
@@ -192,6 +246,36 @@ ion-modal {
     padding-left: 24px;
     color: $text-color;
   }
+
+  ion-list {
+    background: transparent;
+
+    ion-item {
+      --background: transparent;
+      font-family: 'Georgia', serif;
+
+      h2 {
+        color: $text-color;
+        font-size: 1.2em;
+        margin: 0;
+      }
+
+      .stock-text {
+        &.in-stock {
+          color: $success-color;
+        }
+        &.out-of-stock {
+          color: $danger-color;
+        }
+      }
+
+      .precio-detalle {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: $primary-color;
+      }
+    }
+  }
   
   ion-button {
     margin-top: 24px;
@@ -200,6 +284,14 @@ ion-modal {
     --border-radius: 0;
     @include vintage-border;
     font-family: 'Georgia', serif;
+
+    &[disabled] {
+      opacity: 0.7;
+    }
+
+    ion-icon {
+      margin-right: 8px;
+    }
   }
 }
 

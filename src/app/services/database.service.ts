@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Platform, AlertController } from '@ionic/angular';
 import { BehaviorSubject, Observable, from, of } from 'rxjs';
-import { map, catchError, switchMap, tap } from 'rxjs/operators';
+import { map, catchError, switchMap, tap, take} from 'rxjs/operators';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { User } from '../models/user.model';
@@ -62,6 +62,7 @@ export class DatabaseService {
   private database!: SQLiteDBConnection;
   private dbReady = new BehaviorSubject<boolean>(false);
   private sqlite: SQLiteConnection;
+  private dbName = 'vinilos.db';
 
   constructor(
     private platform: Platform,
@@ -78,40 +79,92 @@ export class DatabaseService {
   }
 
   private async initializeDatabase(): Promise<void> {
-    const dbName = 'vinilos.db';
+    if (this.dbReady.getValue()) return;
+
     try {
+      if (Capacitor.getPlatform() === 'web') {
+        await this.sqlite.initWebStore();
+      }
+
       await this.sqlite.closeAllConnections();
       
-      const retCC = await this.sqlite.checkConnectionsConsistency();
-      const isConn = (await this.sqlite.isConnection(dbName, false)).result;
       let db: SQLiteDBConnection;
       
-      if (retCC.result && isConn) {
-        console.log('Retrieving existing database connection');
-        db = await this.sqlite.retrieveConnection(dbName, false);
-      } else {
-        console.log('Creating new database connection');
+      // Intentar crear nueva conexión
+      try {
         db = await this.sqlite.createConnection(
-          dbName,
+          this.dbName,
           false,
-          "no-encryption",
+          'no-encryption',
           1,
           false
         );
+      } catch (error) {
+        console.log('Error creating connection, trying to retrieve existing one:', error);
+        db = await this.sqlite.retrieveConnection(this.dbName, false);
       }
-  
+
       await db.open();
       this.database = db;
-      await this.createTables(); // Ahora createTables verifica si necesita crear las tablas
       
+      console.log('Verificando tablas y datos...');
+      const hasTablesAndData = await this.verifyTablesAndData();
+      
+      if (!hasTablesAndData) {
+        console.log('Creando tablas e insertando datos iniciales...');
+        await this.createTables();
+        await this.insertSeedData();
+      }
+
       this.dbReady.next(true);
       console.log('Database initialized successfully');
     } catch (error) {
-      console.error('Error initializing database:', error);
-      await this.presentAlert('Error', 'Failed to initialize the database. Please try again.');
+      console.error('Database initialization error:', error);
       this.dbReady.next(false);
+      await this.presentAlert('Error', 'No se pudo inicializar la base de datos.');
     }
   }
+
+  private async verifyTablesAndData(): Promise<boolean> {
+    try {
+      const result = await this.database.query(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name IN ('Users', 'Vinyls');
+      `);
+
+      if (!result.values || result.values.length < 2) return false;
+
+      const countResult = await this.database.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM Users) as userCount,
+          (SELECT COUNT(*) FROM Vinyls) as vinylCount;
+      `);
+
+      return countResult.values?.[0]?.vinylCount > 0;
+    } catch (error) {
+      console.error('Error verifying tables:', error);
+      return false;
+    }
+  }
+
+  private async checkTablesAndData(): Promise<boolean> {
+    try {
+      const tablesExist = await this.checkTablesExist();
+      if (!tablesExist) return false;
+  
+      const result = await this.database.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM Users) as userCount,
+          (SELECT COUNT(*) FROM Vinyls) as vinylCount
+      `);
+  
+      const counts = result.values?.[0];
+      return (counts?.userCount > 0 && counts?.vinylCount > 0);
+    } catch (error) {
+      console.error('Error checking tables and data:', error);
+      return false;
+    }
+  }  
 
   private async createTables(): Promise<void> {
     try {
@@ -419,23 +472,36 @@ isAuthenticated(): boolean {
   }
 
   getVinyls(): Observable<Vinyl[]> {
-    console.log('Fetching vinyls from database');
-    return this.executeSQL('SELECT * FROM Vinyls').pipe(
-      map(data => {
-        if (!data.values || data.values.length === 0) {
+    return this.dbReady.pipe(
+      take(1),
+      switchMap(ready => {
+        if (!ready) {
+          console.log('Database not ready, initializing...');
+          return from(this.initializeDatabase()).pipe(
+            switchMap(() => this.executeSQL('SELECT * FROM Vinyls'))
+          );
+        }
+        return this.executeSQL('SELECT * FROM Vinyls');
+      }),
+      map(result => {
+        console.log('Raw vinyl data:', result);
+        if (!result.values?.length) {
           console.log('No vinyls found in database');
           return [];
         }
-        return (data.values as VinylDBRecord[]).map(item => ({
+
+        return result.values.map(item => ({
           id: item.id,
           titulo: item.titulo,
           artista: item.artista,
           imagen: item.imagen,
-          descripcion: JSON.parse(item.descripcion),
-          tracklist: JSON.parse(item.tracklist),
+          descripcion: typeof item.descripcion === 'string' ? 
+            JSON.parse(item.descripcion) : item.descripcion,
+          tracklist: typeof item.tracklist === 'string' ? 
+            JSON.parse(item.tracklist) : item.tracklist,
           stock: item.stock,
           precio: item.precio,
-          IsAvailable: item.IsAvailable === 1
+          IsAvailable: Boolean(item.IsAvailable)
         }));
       }),
       tap(vinyls => console.log('Processed vinyls:', vinyls)),
@@ -445,19 +511,7 @@ isAuthenticated(): boolean {
       })
     );
   }
-
-  createOrder(order: Order): Observable<number> {
-    return this.executeSQL(
-      'INSERT INTO Orders (userId, status, totalAmount, orderDetails) VALUES (?, ?, ?, ?)',
-      [order.userId, order.status, order.totalAmount, JSON.stringify(order.orderDetails)]
-    ).pipe(
-      map(data => data.changes?.lastId || -1),
-      catchError(error => {
-        console.error('Error creating order:', error);
-        throw error;
-      })
-    );
-  }
+  
 
   getOrders(userId?: number): Observable<Order[]> {
     let query = 'SELECT * FROM Orders';
@@ -608,9 +662,11 @@ isAuthenticated(): boolean {
     );
   }
 
+  
+
   private insertSeedData(): Observable<boolean> {
     console.log('Insertando datos de ejemplo');
-    
+  
     const users = [{
       firstName: 'Usuario',
       lastName: 'Ejemplo',
@@ -621,7 +677,6 @@ isAuthenticated(): boolean {
       address: null,
       photo: null
     }];
-    
   
     const products: Vinyl[] = [
       { 
@@ -737,8 +792,9 @@ isAuthenticated(): boolean {
         IsAvailable: true
       }
     ];
-
+  
     return from(Promise.all([
+      // Insertar usuarios
       ...users.map(user => 
         this.database.run(
           `INSERT OR IGNORE INTO Users (
@@ -756,11 +812,28 @@ isAuthenticated(): boolean {
           ]
         )
       ),
+      // Insertar productos
+      ...products.map(product =>
+        this.database.run(
+          `INSERT OR IGNORE INTO Vinyls (
+            titulo, artista, imagen, descripcion, tracklist, 
+            stock, precio, IsAvailable
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            product.titulo,
+            product.artista,
+            product.imagen,
+            JSON.stringify(product.descripcion),
+            JSON.stringify(product.tracklist),
+            product.stock,
+            product.precio,
+            product.IsAvailable ? 1 : 0
+          ]
+        )
+      )
     ])).pipe(
-      map(() => {
-        console.log('Datos de ejemplo insertados exitosamente');
-        return true;
-      }),
+      tap(() => console.log('Datos de ejemplo insertados exitosamente')),
+      map(() => true),
       catchError(error => {
         console.error('Error insertando datos de ejemplo:', error);
         return of(false);

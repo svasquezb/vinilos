@@ -5,10 +5,12 @@
 </ion-header>
 
 <ion-content>
+  <!-- Banner Section -->
   <ion-card>
     <img [src]="banners[currentBannerIndex]" alt="Banner Image"/>
   </ion-card>
 
+  <!-- Featured Vinyls Section -->
   <ion-header>
     <ion-toolbar>
       <ion-title>¡Más Vendidos!</ion-title>
@@ -19,64 +21,81 @@
     <ion-grid>
       <ion-row>
         <ion-col size="12">
-          <!-- Loading spinner -->
-          <div class="loading-container" *ngIf="loading">
-            <ion-spinner></ion-spinner>
+          <!-- Loading spinner - Modificado para mejor feedback -->
+          <div class="loading-container ion-text-center" *ngIf="loading">
+            <ion-spinner name="circular"></ion-spinner>
             <p>Cargando vinilos destacados...</p>
           </div>
 
-          <!-- Vinilos container -->
-          <div class="vinilos-scroll-container" *ngIf="!loading && vinilosDestacados.length">
-            <ion-card *ngFor="let vinilo of vinilosDestacados" class="vinilo-card" (click)="verDetalles(vinilo)">
+          <!-- Vinilos container - Modificado para mejor manejo de errores -->
+          <div class="vinilos-scroll-container" *ngIf="!loading && vinilosDestacados.length > 0">
+            <ion-card *ngFor="let vinilo of vinilosDestacados" 
+                      class="vinilo-card" 
+                      (click)="verDetalles(vinilo)"
+                      [class.out-of-stock]="vinilo.stock === 0">
               <img [src]="vinilo.imagen" [alt]="vinilo.titulo">
               <ion-card-header>
                 <ion-card-title>{{ vinilo.titulo }}</ion-card-title>
                 <ion-card-subtitle>{{ vinilo.artista }}</ion-card-subtitle>
                 <p class="precio">{{ vinilo.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+                <ion-badge color="success" *ngIf="vinilo.stock > 0">Stock: {{vinilo.stock}}</ion-badge>
+                <ion-badge color="danger" *ngIf="vinilo.stock === 0">Sin Stock</ion-badge>
               </ion-card-header>
             </ion-card>
           </div>
 
-          <!-- No results message -->
-          <div class="no-results" *ngIf="!loading && !vinilosDestacados.length">
+          <!-- No results message - Mejorado para más contexto -->
+          <div class="no-results ion-text-center ion-padding" *ngIf="!loading && vinilosDestacados.length === 0">
+            <ion-icon name="alert-circle-outline" size="large"></ion-icon>
             <p>No se encontraron vinilos destacados</p>
+            <ion-button (click)="cargarVinilosDestacados()">
+              Intentar nuevamente
+            </ion-button>
           </div>
         </ion-col>
       </ion-row>
     </ion-grid>
   </div>
 
-  <!-- Modal de detalles -->
+  <!-- Modal de detalles - Mejorado con más información -->
   <ion-modal [isOpen]="!!viniloSeleccionado">
     <ng-template>
       <ion-header>
         <ion-toolbar>
           <ion-title>{{ viniloSeleccionado?.titulo }}</ion-title>
           <ion-buttons slot="end">
-            <ion-button (click)="cerrarDescripcion()">Cerrar</ion-button>
+            <ion-button (click)="cerrarDescripcion()">
+              <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
           </ion-buttons>
         </ion-toolbar>
       </ion-header>
-      <ion-content class="ion-padding">
-        <img [src]="viniloSeleccionado?.imagen" [alt]="viniloSeleccionado?.titulo">
-        <h2>{{ viniloSeleccionado?.artista }}</h2>
 
-        <ion-segment [(ngModel)]="mostrarDescripcionDetalle">
+      <ion-content class="ion-padding">
+        <ion-card>
+          <img [src]="viniloSeleccionado?.imagen" [alt]="viniloSeleccionado?.titulo">
+          <ion-card-header>
+            <ion-card-subtitle>{{ viniloSeleccionado?.artista }}</ion-card-subtitle>
+            <ion-card-title>{{ viniloSeleccionado?.titulo }}</ion-card-title>
+          </ion-card-header>
+        </ion-card>
+
+        <ion-segment [(ngModel)]="mostrarDescripcionDetalle" mode="ios" class="ion-margin-vertical">
           <ion-segment-button value="descripcion">
-            Descripción
+            <ion-label>Descripción</ion-label>
           </ion-segment-button>
           <ion-segment-button value="tracklist">
-            Tracklist
+            <ion-label>Tracklist</ion-label>
           </ion-segment-button>
         </ion-segment>
 
-        <div *ngIf="mostrarDescripcionDetalle === 'descripcion'">
+        <div *ngIf="mostrarDescripcionDetalle === 'descripcion'" class="ion-padding-vertical">
           <div *ngFor="let parrafo of viniloSeleccionado?.descripcion">
             <p>{{ parrafo }}</p>
           </div>
         </div>
 
-        <div *ngIf="mostrarDescripcionDetalle === 'tracklist'">
+        <div *ngIf="mostrarDescripcionDetalle === 'tracklist'" class="ion-padding-vertical">
           <h3>Tracklist</h3>
           <ol>
             <li *ngFor="let cancion of viniloSeleccionado?.tracklist">
@@ -85,17 +104,29 @@
           </ol>
         </div>
 
-        <ion-text>
-          <h3>Precio: {{ viniloSeleccionado?.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</h3>
-        </ion-text>
-        <ion-text [color]="viniloSeleccionado?.stock === 0 ? 'danger' : 'medium'">
-          <p>Stock disponible: {{ viniloSeleccionado?.stock ?? 'N/A' }}</p>
-        </ion-text>
+        <ion-list lines="none">
+          <ion-item>
+            <ion-label>
+              <h2>Precio</h2>
+              <p class="precio-detalle">{{ viniloSeleccionado?.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+            </ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>
+              <h2>Stock disponible</h2>
+              <p [class]="viniloSeleccionado?.stock === 0 ? 'stock-text out-of-stock' : 'stock-text in-stock'">
+                {{ viniloSeleccionado?.stock ?? 'N/A' }} unidades
+              </p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+
         <ion-button 
           expand="block" 
           (click)="agregarAlCarrito()" 
           [disabled]="!viniloSeleccionado?.stock"
-          class="vintage-button">
+          class="vintage-button ion-margin-vertical">
+          <ion-icon name="cart-outline" slot="start"></ion-icon>
           {{ viniloSeleccionado?.stock ? 'Agregar al carrito' : 'Sin stock' }}
         </ion-button>
       </ion-content>

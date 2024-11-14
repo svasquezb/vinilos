@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CartService } from '../services/cart.service';
-import { ToastController } from '@ionic/angular';
+import { ToastController, LoadingController } from '@ionic/angular';
 import { DatabaseService } from '../services/database.service';
 import { firstValueFrom } from 'rxjs';
 import { Vinyl } from '../models/vinilos.model';
@@ -28,7 +28,8 @@ export class HomePage implements OnInit, OnDestroy {
   constructor(
     private cartService: CartService,
     private toastController: ToastController,
-    private databaseService: DatabaseService
+    private databaseService: DatabaseService,
+    private loadingController: LoadingController
   ) {}
 
   ngOnInit() {
@@ -37,42 +38,37 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   async cargarVinilosDestacados() {
-    this.loading = true;
-  
-    this.databaseService.executeQuerySQL(
-      `SELECT * FROM Vinyls ORDER BY id DESC LIMIT 3`
-    ).subscribe(
-      (result) => {
-        if (result && result.values) {
-          this.vinilosDestacados = result.values.map(item => ({
-            id: item.id,
-            titulo: item.titulo,
-            artista: item.artista,
-            imagen: item.imagen,
-            descripcion: JSON.parse(item.descripcion),
-            tracklist: JSON.parse(item.tracklist),
-            stock: item.stock,
-            precio: item.precio,
-            IsAvailable: item.IsAvailable === 1
-          }));
-          console.log('Vinilos destacados cargados:', this.vinilosDestacados);
-        }
-      },
-      (error) => {
-        console.error('Error cargando vinilos:', error);
-        this.presentToast('Error al cargar los vinilos', 'danger');
-      },
-      () => {
-        this.loading = false;
+    const loading = await this.loadingController.create({
+      message: 'Cargando vinilos destacados...',
+      spinner: 'circular'
+    });
+    await loading.present();
+
+    try {
+      console.log('Iniciando carga de vinilos destacados');
+      const vinilosFromDB = await firstValueFrom(this.databaseService.getVinyls());
+      
+      if (!vinilosFromDB || vinilosFromDB.length === 0) {
+        console.log('No se encontraron vinilos');
+        await this.presentToast('No se encontraron vinilos disponibles', 'warning');
+        return;
       }
-    );
+
+      // Tomar solo los últimos 3 vinilos
+      this.vinilosDestacados = vinilosFromDB.slice(-3);
+      console.log('Vinilos destacados cargados:', this.vinilosDestacados);
+
+    } catch (error) {
+      console.error('Error al cargar vinilos destacados:', error);
+      await this.presentToast('Error al cargar los vinilos', 'danger');
+    } finally {
+      this.loading = false;
+      await loading.dismiss();
+    }
   }
 
   ionViewWillEnter() {
-    if (this.vinilosDestacados.length === 0) {
-      this.loading = true;
-      this.cargarVinilosDestacados();
-    }
+    this.cargarVinilosDestacados();
   }
 
   ngOnDestroy() {
@@ -97,15 +93,23 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   async agregarAlCarrito() {
-    if (this.viniloSeleccionado) {
+    if (this.viniloSeleccionado && this.viniloSeleccionado.id !== undefined) {
       try {
+        await firstValueFrom(this.databaseService.updateVinylStock(
+          this.viniloSeleccionado.id, 
+          this.viniloSeleccionado.stock - 1
+        ));
+        
         this.cartService.addToCart(this.viniloSeleccionado);
         await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
+        await this.cargarVinilosDestacados();
         this.cerrarDescripcion();
       } catch (error) {
         console.error('Error al agregar al carrito:', error);
         await this.presentToast('Error al agregar al carrito', 'danger');
       }
+    } else {
+      await this.presentToast('No se puede agregar este vinilo al carrito', 'danger');
     }
   }
 
