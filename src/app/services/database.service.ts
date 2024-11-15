@@ -570,27 +570,33 @@ isAuthenticated(): boolean {
       WHERE id = ?
     `;
   
-    return this.executeSQL(query, [
+    const params = [
       userData.firstName,
       userData.lastName,
       userData.address || null,
       userData.phoneNumber || null,
       userData.id
-    ]).pipe(
+    ];
+  
+    return this.executeSQL(query, params).pipe(
       map(result => {
         console.log('Resultado actualización:', result);
-        if (result.changes) {
+        
+        if (result) {
           // Actualizar sesión activa
           const currentSession = this.currentSession.getValue();
           if (currentSession) {
             this.currentSession.next({
               ...currentSession,
-              ...userData
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              address: userData.address,
+              phoneNumber: userData.phoneNumber
             });
           }
           return {
             success: true,
-            changes: result.changes
+            message: 'Usuario actualizado correctamente'
           };
         }
         return {
@@ -607,8 +613,48 @@ isAuthenticated(): boolean {
       })
     );
   }
+
   
+  updateUserPassword(userId: number, currentPassword: string, newPassword: string): Observable<any> {
+    console.log('Actualizando contraseña para usuario:', userId);
+    //Verificar contraseña
+    const verifyQuery = ` 
+      SELECT id FROM Users 
+      WHERE id = ? AND password = ?
+    `;
   
+    return this.executeSQL(verifyQuery, [userId, currentPassword]).pipe(
+      switchMap(result => {
+        if (!result.values?.length) {
+          return of({ 
+            success: false, 
+            error: 'La contraseña actual es incorrecta' 
+          });
+        }
+  
+        // Si la contraseña actual es correcta, actualizamos a la nueva
+        const updateQuery = `
+          UPDATE Users 
+          SET password = ?
+          WHERE id = ?
+        `;
+  
+        return this.executeSQL(updateQuery, [newPassword, userId]).pipe(
+          map(updateResult => ({
+            success: true
+          })),
+          catchError(error => {
+            console.error('Error updating password:', error);
+            return of({
+              success: false,
+              error: 'Error al actualizar la contraseña'
+            });
+          })
+        );
+      })
+    );
+  }
+
   updateUserPhoto(userId: number, photoData: string): Observable<any> {
     console.log('Actualizando foto de usuario:', userId);
     

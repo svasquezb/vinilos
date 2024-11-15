@@ -1,22 +1,25 @@
-// Variables
-$primary-color: #8B4513;    // Saddle Brown
-$secondary-color: #DEB887;  // Burlywood
-$accent-color: #CD853F;     // Peru
-$background-color: #FFF8DC; // Cornsilk
-$card-background: #FAEBD7;  // Antique White
-$text-color: #3E2723;      // Dark Brown
-$light-text-color: #FFF8DC; // Cornsilk
-$error-color: #B22222;     // FireBrick
-$success-color: #2E8B57;   // Sea Green
-$spacing-unit: 16px;
-$border-radius: 8px;
-$transition-duration: 0.3s;
+// Variables Core
+$colors: (
+  'primary': #8B4513,    // Saddle Brown
+  'secondary': #DEB887,  // Burlywood
+  'accent': #CD853F,     // Peru
+  'background': #FFF8DC, // Cornsilk
+  'card': #FAEBD7,      // Antique White
+  'text': #3E2723,      // Dark Brown
+  'text-light': #FFF8DC, // Cornsilk
+  'error': #B22222,     // FireBrick
+  'success': #2E8B57    // Sea Green
+);
 
-// Mixins
+$spacing: 16px;
+$radius: 8px;
+$transition: 0.3s ease;
+
+// Mixins Principales
 @mixin vintage-border {
-  border: 2px solid $primary-color;
-  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
-  border-radius: $border-radius;
+  border: 2px solid map-get($colors, 'primary');
+  box-shadow: 3px 3px 0 rgba(map-get($colors, 'primary'), 0.5);
+  border-radius: $radius;
 }
 
 @mixin flex-center {
@@ -25,295 +28,178 @@ $transition-duration: 0.3s;
   justify-content: center;
 }
 
-@mixin card-style {
-  background: $card-background;
-  @include vintage-border;
-  padding: $spacing-unit;
-  margin-bottom: $spacing-unit;
+// Estilos Base
+:root {
+  --ion-background-color: #{map-get($colors, 'background')};
+  --ion-font-family: 'Georgia', serif;
 }
 
-// Animations
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+// Toolbar y Header
+ion-toolbar {
+  --background: #{map-get($colors, 'primary')};
+  --color: #{map-get($colors, 'text-light')};
 
-@keyframes slideIn {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
+  ion-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+  }
 
-// General Styles
-ion-content {
-  --background: #{$background-color};
-  font-family: 'Georgia', serif;
-
-  &::part(scroll) {
-    padding: $spacing-unit;
-    padding-bottom: $spacing-unit * 2;
+  ion-back-button {
+    --color: #{map-get($colors, 'text-light')};
   }
 }
 
-// Header Styles
-ion-header {
-  ion-toolbar {
-    --background: #{$primary-color};
-    
-    ion-title {
-      text-align: center;
-      font-size: 1.5rem;
-      font-family: 'Playfair Display', serif;
-      color: $light-text-color;
-      padding: $spacing-unit 0;
-    }
-
-    ion-back-button {
-      --color: #{$light-text-color};
-    }
-  }
-}
-
-// Profile Photo Styles
+// Contenedor de Foto
 .profile-photo-container {
-  @include card-style;
+  @include vintage-border;
+  background: map-get($colors, 'card');
+  padding: $spacing * 2;
+  margin: $spacing 0;
   text-align: center;
-  padding: $spacing-unit * 2;
-  margin-top: $spacing-unit;
-  animation: fadeIn $transition-duration ease-in-out;
 
   ion-img {
     width: 200px;
     height: 200px;
-    margin: 0 auto $spacing-unit;
+    margin: 0 auto $spacing;
     border-radius: 50%;
+    border: 3px solid map-get($colors, 'primary');
     object-fit: cover;
-    border: 3px solid $primary-color;
-    background-color: $card-background;
-    transition: transform $transition-duration ease;
+    transition: transform $transition;
 
     &:hover {
       transform: scale(1.05);
     }
   }
-
-  ion-button {
-    max-width: 250px;
-    margin: $spacing-unit auto 0;
-  }
 }
 
-// User List Styles
-ion-list {
-  background: transparent;
-  margin: ($spacing-unit * 2) 0;
-  animation: slideIn $transition-duration ease-out;
-
-  ion-item {
-    --background: #{$card-background};
-    --border-color: #{$primary-color};
-    margin-bottom: $spacing-unit;
-    @include vintage-border;
-    transition: transform $transition-duration ease;
-
-    &:hover {
-      transform: translateX(5px);
-    }
-
-    ion-label {
-      h2 {
-        color: $primary-color;
-        font-size: 1.1rem;
-        font-weight: bold;
-        margin-bottom: 8px;
-      }
-
-      p {
-        color: $text-color;
-        margin: 4px 0;
-        display: flex;
-        align-items: center;
-
-        ion-icon {
-          margin-right: 8px;
-          color: $accent-color;
-        }
-      }
-    }
-  }
-}
-
-// Card Styles
+// Cards y Items
 ion-card {
   @include vintage-border;
-  background: $card-background;
-  margin: $spacing-unit 0;
-  animation: slideIn $transition-duration ease-out;
+  background: map-get($colors, 'card');
+  margin: $spacing 0;
 
   ion-card-header {
-    background: $primary-color;
-    padding: $spacing-unit;
-
+    background: map-get($colors, 'primary');
+    
     ion-card-title {
-      color: $light-text-color;
+      color: map-get($colors, 'text-light');
       font-family: 'Playfair Display', serif;
-      font-size: 1.3rem;
-      text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
+      @include flex-center;
+      
       ion-icon {
-        margin-right: $spacing-unit;
+        margin-right: $spacing;
       }
     }
   }
 
-  ion-card-content {
-    padding: $spacing-unit;
+  ion-item {
+    --background: transparent;
+    --border-color: #{map-get($colors, 'accent')};
+    margin-bottom: $spacing;
 
-    ion-item {
-      --background: transparent;
-      --border-color: #{$accent-color};
-      margin-bottom: $spacing-unit;
-      
-      ion-label {
-        color: $primary-color;
-        font-weight: bold;
-        margin-bottom: 8px;
-      }
+    ion-label {
+      color: map-get($colors, 'primary');
+      font-weight: bold;
+    }
 
-      ion-input {
-        --color: #{$text-color};
-        --placeholder-color: #{$secondary-color};
-        font-family: 'Georgia', serif;
-        --padding-start: $spacing-unit;
-        margin-top: 8px;
-      }
+    ion-input {
+      --color: #{map-get($colors, 'text')};
+      --placeholder-color: #{map-get($colors, 'secondary')};
+      font-family: 'Georgia', serif;
     }
   }
 }
 
-// Button Styles
+// Botones
 ion-button {
-  --background: #{$accent-color};
-  --color: #{$light-text-color};
-  --border-radius: #{$border-radius};
-  height: 48px;
+  --background: #{map-get($colors, 'accent')};
+  --color: #{map-get($colors, 'text-light')};
+  --border-radius: #{$radius};
   font-family: 'Georgia', serif;
-  margin: ($spacing-unit / 2) 0;
-  transition: transform $transition-duration ease;
-  
-  &:hover {
+  height: 48px;
+  margin: $spacing/2 0;
+  transition: transform $transition;
+
+  &:hover:not([disabled]) {
     transform: translateY(-2px);
-  }
-
-  &.button-block {
-    margin: $spacing-unit 0;
-  }
-
-  &[color="secondary"] {
-    --background: #{$secondary-color};
   }
 
   &[disabled] {
     opacity: 0.7;
+    transform: none;
+  }
+
+  &[color="secondary"] {
+    --background: #{map-get($colors, 'secondary')};
+    --color: #{map-get($colors, 'text')};
   }
 }
 
-// Loading Styles
+// Estados de Carga
 .loading-container {
   @include flex-center;
   flex-direction: column;
   height: 200px;
-  animation: fadeIn $transition-duration ease-in;
-  
+
   ion-spinner {
+    color: map-get($colors, 'primary');
     width: 48px;
     height: 48px;
-    color: $primary-color;
   }
 
   p {
-    margin-top: $spacing-unit;
-    color: $primary-color;
-    font-family: 'Georgia', serif;
+    margin-top: $spacing;
+    color: map-get($colors, 'primary');
   }
 }
 
-// Custom Classes
-.action-buttons {
-  padding: $spacing-unit;
-  
-  ion-button {
-    margin-bottom: $spacing-unit;
-    
-    &:last-child {
-      margin-bottom: 0;
+// Alertas y Toasts
+.custom-toast, .custom-loading {
+  --background: #{map-get($colors, 'card')};
+  --color: #{map-get($colors, 'text')};
+  --border-color: #{map-get($colors, 'primary')};
+  --border-radius: #{$radius};
+}
+
+// Alert de Contraseña
+.alert-wrapper {
+  --background: #{map-get($colors, 'card')};
+  @include vintage-border;
+
+  .alert-head {
+    background: map-get($colors, 'primary');
+    .alert-title {
+      color: map-get($colors, 'text-light');
+      font-family: 'Playfair Display', serif;
     }
   }
-}
 
-.error-card {
-  @include card-style;
-  text-align: center;
-  
-  ion-card-title {
-    color: $error-color;
-    font-size: 1.2rem;
-    margin-bottom: $spacing-unit;
-  }
-
-  p {
-    color: $text-color;
+  .alert-input {
+    border: 1px solid map-get($colors, 'accent');
+    border-radius: $radius;
+    background: map-get($colors, 'background');
+    color: map-get($colors, 'text');
+    padding: $spacing/2;
+    margin: $spacing/2 0;
   }
 }
 
-// Toast Customization
-.custom-toast {
-  --background: #{$card-background};
-  --color: #{$text-color};
-  --border-color: #{$primary-color};
-  --border-radius: #{$border-radius};
-  --border-width: 2px;
-  --border-style: solid;
-}
-
-// Loading Customization
-.custom-loading {
-  --background: #{$card-background};
-  --spinner-color: #{$primary-color};
-}
-
-// Responsive Design
+// Media Queries
 @media (min-width: 768px) {
   ion-content::part(scroll) {
     max-width: 768px;
     margin: 0 auto;
   }
 
-  .profile-photo-container {
-    ion-img {
-      width: 250px;
-      height: 250px;
-    }
-  }
-
-  ion-card {
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
+  .profile-photo-container ion-img {
+    width: 250px;
+    height: 250px;
   }
 }
 
 @media (max-width: 576px) {
-  ion-content::part(scroll) {
-    padding: $spacing-unit/2;
-  }
-
-  .profile-photo-container {
-    ion-img {
-      width: 150px;
-      height: 150px;
-    }
+  .profile-photo-container ion-img {
+    width: 150px;
+    height: 150px;
   }
 }

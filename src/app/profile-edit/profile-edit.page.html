@@ -74,6 +74,19 @@
 
         <ion-item>
           <ion-label position="stacked">
+            <ion-icon name="call-outline"></ion-icon>
+            Teléfono
+          </ion-label>
+          <ion-input 
+            [(ngModel)]="currentUser.phoneNumber" 
+            placeholder="Ingrese su teléfono"
+            type="tel"
+            maxlength="9">
+          </ion-input>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">
             <ion-icon name="location-outline"></ion-icon>
             Dirección
           </ion-label>
@@ -86,9 +99,14 @@
 
         <!-- Botones de acción -->
         <div class="action-buttons">
-          <ion-button expand="block" (click)="saveUser()">
+          <ion-button expand="block" (click)="saveUser()" [disabled]="!hasUnsavedChanges()">
             <ion-icon name="save-outline" slot="start"></ion-icon>
             Guardar Cambios
+          </ion-button>
+
+          <ion-button expand="block" color="secondary" (click)="changePassword()" class="password-button">
+            <ion-icon name="key-outline" slot="start"></ion-icon>
+            Cambiar Contraseña
           </ion-button>
         </div>
       </ion-card-content>
