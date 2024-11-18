@@ -1,0 +1,170 @@
+// Importar las mismas variables
+$colors: (
+  'primary': #8B4513,    // Saddle Brown
+  'secondary': #DEB887,  // Burlywood
+  'accent': #CD853F,     // Peru
+  'background': #FFF8DC, // Cornsilk
+  'card': #FAEBD7,      // Antique White
+  'text': #3E2723,      // Dark Brown
+  'text-light': #FFF8DC, // Cornsilk
+  'error': #B22222,     // FireBrick
+  'success': #2E8B57    // Sea Green
+);
+
+$spacing: 16px;
+$radius: 8px;
+$transition: 0.3s ease;
+
+@mixin vintage-border {
+  border: 2px solid map-get($colors, 'primary');
+  box-shadow: 3px 3px 0 rgba(map-get($colors, 'primary'), 0.5);
+  border-radius: $radius;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Estilos Base
+:root {
+  --ion-background-color: #{map-get($colors, 'background')};
+  --ion-font-family: 'Georgia', serif;
+}
+
+// Toolbar y Header
+ion-toolbar {
+  --background: #{map-get($colors, 'primary')};
+  --color: #{map-get($colors, 'text-light')};
+
+  ion-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+  }
+
+  ion-back-button {
+    --color: #{map-get($colors, 'text-light')};
+  }
+}
+
+// Lista de Usuarios
+ion-card {
+  @include vintage-border;
+  background: map-get($colors, 'card');
+  margin: $spacing 0;
+
+  ion-card-header {
+    background: map-get($colors, 'primary');
+    padding: $spacing;
+    
+    ion-card-title {
+      color: map-get($colors, 'text-light');
+      font-family: 'Playfair Display', serif;
+      @include flex-center;
+      
+      ion-icon {
+        margin-right: $spacing;
+      }
+    }
+  }
+
+  ion-list {
+    background: transparent;
+    
+    ion-item {
+      --background: transparent;
+      --border-color: #{map-get($colors, 'accent')};
+      margin-bottom: $spacing;
+      font-family: 'Georgia', serif;
+
+      h2 {
+        color: map-get($colors, 'text');
+        font-size: 1.1rem;
+        margin-bottom: 4px;
+      }
+
+      ion-item-option {
+        font-family: 'Georgia', serif;
+      }
+    }
+  }
+}
+
+// Estados de Carga
+.loading-container {
+  @include flex-center;
+  flex-direction: column;
+  height: 200px;
+
+  ion-spinner {
+    color: map-get($colors, 'primary');
+    width: 48px;
+    height: 48px;
+  }
+
+  p {
+    margin-top: $spacing;
+    color: map-get($colors, 'primary');
+  }
+}
+
+// Estado vacío
+.empty-state {
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing * 2;
+  
+  ion-icon {
+    font-size: 48px;
+    color: map-get($colors, 'secondary');
+    margin-bottom: $spacing;
+  }
+  
+  p {
+    color: map-get($colors, 'text');
+    font-family: 'Georgia', serif;
+  }
+}
+
+// Alert personalizado
+.alert-wrapper {
+  --background: #{map-get($colors, 'card')};
+  @include vintage-border;
+
+  .alert-head {
+    background: map-get($colors, 'primary');
+    
+    .alert-title {
+      color: map-get($colors, 'text-light');
+      font-family: 'Playfair Display', serif;
+    }
+  }
+
+  .alert-message {
+    color: map-get($colors, 'text');
+    font-family: 'Georgia', serif;
+    padding: $spacing;
+  }
+
+  .alert-button-group {
+    border-top: 1px solid map-get($colors, 'accent');
+    
+    button {
+      color: map-get($colors, 'text');
+      font-family: 'Georgia', serif;
+
+      &.alert-button-role-destructive {
+        color: map-get($colors, 'error');
+      }
+    }
+  }
+}
+
+// Media Queries
+@media (min-width: 768px) {
+  ion-content::part(scroll) {
+    max-width: 768px;
+    margin: 0 auto;
+  }
+}

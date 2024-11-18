@@ -1,22 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, AlertController, NavController } from '@ionic/angular';
-import { addIcons } from 'ionicons';
-import { addCircleOutline, createOutline, trashOutline, listOutline } from 'ionicons/icons';
-
-interface Vinilo {
-  id: number;
-  titulo: string;
-  artista: string;
-  imagen: string;
-  descripcion: string[];
-  tracklist: string[];
-  stock: number;
-  precio: number;
-}
-
-type ViniloKeys = keyof Vinilo;
+import { IonicModule, ToastController, AlertController, NavController, LoadingController } from '@ionic/angular';
+import { DatabaseService } from '../services/database.service';
+import { firstValueFrom } from 'rxjs';
+import { Vinyl } from '../models/vinilos.model';
 
 @Component({
   selector: 'app-vinilo-crud',
@@ -24,108 +10,164 @@ type ViniloKeys = keyof Vinilo;
   styleUrls: ['./vinilo-crud.page.scss'],
 })
 export class ViniloCrudPage implements OnInit {
-  vinilos: Vinilo[] = [];
-  nuevoVinilo: Vinilo = this.inicializarNuevoVinilo();
+  vinilos: Vinyl[] = [];
+  nuevoVinilo: Vinyl = this.inicializarNuevoVinilo();
   modoEdicion = false;
-  viniloEditando: Vinilo | null = null;
-  activeSectionPage: 'add' | 'edit' | 'delete' | 'view' = 'view';
+  viniloEditando: Vinyl | null = null;
+  loading = true;
 
   constructor(
     private toastController: ToastController,
     private alertController: AlertController,
-    private navCtrl: NavController
-  ) {
-    addIcons({ addCircleOutline, createOutline, trashOutline, listOutline });
+    private navCtrl: NavController,
+    private loadingController: LoadingController,
+    private databaseService: DatabaseService
+  ) {}
+
+  async ngOnInit() {
+    await this.cargarVinilos();
   }
 
-  ngOnInit() {
-    this.loadVinilos();
-  }
-
-  loadVinilos() {
-    this.vinilos = [
-      {
-        id: 1,
-        titulo: 'Sempiternal',
-        artista: 'Bring me the horizon',
-        imagen: 'assets/img/sempiternal.jpg',
-        descripcion: ['Álbum de rock alternativo lanzado en 2013'],
-        tracklist: ['Can You Feel My Heart', 'The House of Wolves', 'Empire (Let Them Sing)'],
-        stock: 10,
-        precio: 35990
-      },
-    ];
-  }
-
-  inicializarNuevoVinilo(): Vinilo {
+  inicializarNuevoVinilo(): Vinyl {
     return {
-      id: 0,
       titulo: '',
       artista: '',
       imagen: '',
-      descripcion: [],
-      tracklist: [],
+      descripcion: [''],
+      tracklist: [''],
       stock: 0,
-      precio: 0
+      precio: 0,
+      IsAvailable: true
     };
   }
 
-  getViniloActual(): Vinilo {
+  getViniloActual(): Vinyl {
     return this.modoEdicion ? this.viniloEditando! : this.nuevoVinilo;
   }
 
-  actualizarCampo(campo: ViniloKeys, valor: any) {
-    const viniloActual = this.getViniloActual();
-    (viniloActual as any)[campo] = valor;
-  }
-
-  async crearVinilo() {
-    if (this.validarVinilo(this.nuevoVinilo)) {
-      this.nuevoVinilo.id = this.vinilos.length + 1;
-      this.vinilos.push({...this.nuevoVinilo});
-      await this.presentToast('Vinilo creado correctamente');
-      this.nuevoVinilo = this.inicializarNuevoVinilo();
+  actualizarCampo(campo: keyof Vinyl, valor: any) {
+    const vinilo = this.getViniloActual();
+    
+    if (campo === 'descripcion' || campo === 'tracklist') {
+      if (typeof valor === 'string') {
+        (vinilo[campo] as string[]) = valor.split('\n').filter(item => item.trim() !== '');
+      } else if (Array.isArray(valor)) {
+        (vinilo[campo] as string[]) = valor.filter(item => item.trim() !== '');
+      }
+    } else if (campo === 'stock' || campo === 'precio') {
+      (vinilo[campo] as number) = Number(valor) || 0;
     } else {
-      await this.mostrarAlerta('Error', 'Por favor, completa todos los campos requeridos y asegúrate de que el stock y el precio sean mayores que cero.');
+      (vinilo[campo] as any) = valor;
     }
   }
 
-  validarVinilo(vinilo: Vinilo): boolean {
+  async cargarVinilos() {
+    const loading = await this.loadingController.create({
+      message: 'Cargando vinilos...',
+      spinner: 'circular'
+    });
+    await loading.present();
+
+    try {
+      const vinilosFromDB = await firstValueFrom(this.databaseService.getVinyls());
+      
+      if (!vinilosFromDB || vinilosFromDB.length === 0) {
+        console.log('No se encontraron vinilos');
+        this.vinilos = [];
+        await this.presentToast('No se encontraron vinilos disponibles', 'warning');
+        return;
+      }
+
+      this.vinilos = vinilosFromDB;
+      console.log(`Se cargaron ${this.vinilos.length} vinilos`);
+      
+    } catch (error) {
+      console.error('Error al cargar vinilos:', error);
+      await this.presentToast('Error al cargar los vinilos', 'danger');
+    } finally {
+      this.loading = false;
+      await loading.dismiss();
+    }
+  }
+
+  async crearVinilo() {
+    if (!this.validarVinilo(this.nuevoVinilo)) {
+      await this.presentToast('Por favor complete todos los campos requeridos', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Creando vinilo...',
+      spinner: 'circular'
+    });
+    await loading.present();
+
+    try {
+      await firstValueFrom(this.databaseService.createVinyl(this.nuevoVinilo));
+      await this.presentToast('Vinilo creado exitosamente', 'success');
+      this.nuevoVinilo = this.inicializarNuevoVinilo();
+      await this.cargarVinilos();
+    } catch (error) {
+      console.error('Error al crear vinilo:', error);
+      await this.presentToast('Error al crear el vinilo', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  validarVinilo(vinilo: Vinyl): boolean {
     return (
       vinilo.titulo.trim() !== '' &&
       vinilo.artista.trim() !== '' &&
+      vinilo.imagen.trim() !== '' &&
       vinilo.descripcion.length > 0 &&
+      vinilo.descripcion[0].trim() !== '' &&
       vinilo.tracklist.length > 0 &&
+      vinilo.tracklist[0].trim() !== '' &&
       vinilo.stock > 0 &&
       vinilo.precio > 0
     );
   }
 
-  editarVinilo(vinilo: Vinilo) {
+  editarVinilo(vinilo: Vinyl) {
     this.modoEdicion = true;
-    this.viniloEditando = {...vinilo};
-    this.activeSectionPage = 'edit';
+    this.viniloEditando = { ...vinilo };
   }
 
   async actualizarVinilo() {
-    if (this.viniloEditando && this.validarVinilo(this.viniloEditando)) {
-      const index = this.vinilos.findIndex(v => v.id === this.viniloEditando!.id);
-      if (index !== -1) {
-        this.vinilos[index] = {...this.viniloEditando};
-        this.modoEdicion = false;
-        this.viniloEditando = null;
-        await this.presentToast('Vinilo actualizado correctamente');
-        this.activeSectionPage = 'view';
-      }
-    } else {
-      await this.mostrarAlerta('Error', 'Por favor, completa todos los campos requeridos y asegúrate de que el stock y el precio sean mayores que cero.');
+    if (!this.viniloEditando) {
+      return;
+    }
+
+    if (!this.validarVinilo(this.viniloEditando)) {
+      await this.presentToast('Por favor complete todos los campos requeridos', 'warning');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Actualizando vinilo...',
+      spinner: 'circular'
+    });
+    await loading.present();
+
+    try {
+      await firstValueFrom(this.databaseService.updateVinyl(this.viniloEditando));
+      await this.presentToast('Vinilo actualizado exitosamente', 'success');
+      this.modoEdicion = false;
+      this.viniloEditando = null;
+      await this.cargarVinilos();
+    } catch (error) {
+      console.error('Error al actualizar vinilo:', error);
+      await this.presentToast('Error al actualizar el vinilo', 'danger');
+    } finally {
+      await loading.dismiss();
     }
   }
 
-  async eliminarVinilo(vinilo: Vinilo) {
+  async eliminarVinilo(vinilo: Vinyl) {
     const alert = await this.alertController.create({
       header: 'Confirmar eliminación',
-      message: `¿Estás seguro de que quieres eliminar ${vinilo.titulo}?`,
+      message: `¿Está seguro que desea eliminar el vinilo "${vinilo.titulo}"?`,
       buttons: [
         {
           text: 'Cancelar',
@@ -133,9 +175,24 @@ export class ViniloCrudPage implements OnInit {
         },
         {
           text: 'Eliminar',
-          handler: () => {
-            this.vinilos = this.vinilos.filter(v => v.id !== vinilo.id);
-            this.presentToast('Vinilo eliminado correctamente');
+          role: 'destructive',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Eliminando vinilo...',
+              spinner: 'circular'
+            });
+            await loading.present();
+
+            try {
+              await firstValueFrom(this.databaseService.deleteVinyl(vinilo.id!));
+              await this.presentToast('Vinilo eliminado exitosamente', 'success');
+              await this.cargarVinilos();
+            } catch (error) {
+              console.error('Error al eliminar vinilo:', error);
+              await this.presentToast('Error al eliminar el vinilo', 'danger');
+            } finally {
+              await loading.dismiss();
+            }
           }
         }
       ]
@@ -146,31 +203,17 @@ export class ViniloCrudPage implements OnInit {
   cancelarEdicion() {
     this.modoEdicion = false;
     this.viniloEditando = null;
-    this.activeSectionPage = 'view';
+    this.nuevoVinilo = this.inicializarNuevoVinilo();
   }
 
-  async presentToast(message: string) {
+  async presentToast(message: string, color: string = 'success') {
     const toast = await this.toastController.create({
-      message: message,
-      duration: 2000,
-      position: 'bottom'
-    });
-    toast.present();
-  }
-
-  async mostrarAlerta(header: string, message: string) {
-    const alert = await this.alertController.create({
-      header,
       message,
-      buttons: ['OK']
+      duration: 2000,
+      position: 'bottom',
+      color,
+      cssClass: 'custom-toast'
     });
-    await alert.present();
-  }
-
-  setActiveSection(section: 'add' | 'edit' | 'delete' | 'view') {
-    this.activeSectionPage = section;
-    if (section !== 'edit') {
-      this.cancelarEdicion();
-    }
+    await toast.present();
   }
 }

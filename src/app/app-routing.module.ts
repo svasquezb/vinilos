@@ -34,7 +34,11 @@ const routes: Routes = [
     path: '',
     redirectTo: 'home',
     pathMatch: 'full'
+  },  {
+    path: 'user-management',
+    loadChildren: () => import('./admin/user-management/user-management.module').then( m => m.UserManagementPageModule)
   }
+
 ];
 
 @NgModule({

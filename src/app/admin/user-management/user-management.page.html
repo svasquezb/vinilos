@@ -1,0 +1,50 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Gestión de Usuarios</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading spinner -->
+  <div class="loading-container" *ngIf="loading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Cargando usuarios...</p>
+  </div>
+
+  <!-- Lista de usuarios -->
+  <ion-card *ngIf="!loading">
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="people"></ion-icon>
+        Usuarios Registrados
+      </ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-list *ngIf="users.length > 0">
+        <ion-item-sliding *ngFor="let user of users">
+          <ion-item>
+            <ion-label>
+              <h2>{{ user.email }}</h2>
+            </ion-label>
+          </ion-item>
+
+          <ion-item-options side="end">
+            <ion-item-option color="danger" (click)="confirmDelete(user)">
+              <ion-icon slot="icon-only" name="trash"></ion-icon>
+            </ion-item-option>
+          </ion-item-options>
+        </ion-item-sliding>
+      </ion-list>
+
+      <!-- Mensaje cuando no hay usuarios -->
+      <div class="empty-state" *ngIf="users.length === 0">
+        <ion-icon name="people-outline" size="large"></ion-icon>
+        <p>No hay usuarios registrados</p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

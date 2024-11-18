@@ -78,19 +78,18 @@ export class DatabaseService {
     return this.dbReady.asObservable();
   }
 
-  private async initializeDatabase(): Promise<void> {
-    if (this.dbReady.getValue()) return;
+  
 
+  private async initializeDatabase(): Promise<void> {
     try {
       if (Capacitor.getPlatform() === 'web') {
         await this.sqlite.initWebStore();
       }
-
+  
       await this.sqlite.closeAllConnections();
       
       let db: SQLiteDBConnection;
       
-      // Intentar crear nueva conexión
       try {
         db = await this.sqlite.createConnection(
           this.dbName,
@@ -103,25 +102,52 @@ export class DatabaseService {
         console.log('Error creating connection, trying to retrieve existing one:', error);
         db = await this.sqlite.retrieveConnection(this.dbName, false);
       }
-
+  
       await db.open();
       this.database = db;
       
-      console.log('Verificando tablas y datos...');
-      const hasTablesAndData = await this.verifyTablesAndData();
+      // Crear tablas y asegurar datos iniciales
+      await this.ensureDatabaseStructure();
       
-      if (!hasTablesAndData) {
-        console.log('Creando tablas e insertando datos iniciales...');
-        await this.createTables();
-        await this.insertSeedData();
-      }
-
       this.dbReady.next(true);
       console.log('Database initialized successfully');
     } catch (error) {
-      console.error('Database initialization error:', error);
+      console.error('Error initializing database:', error);
       this.dbReady.next(false);
-      await this.presentAlert('Error', 'No se pudo inicializar la base de datos.');
+      throw error;
+    }
+  }
+
+  private async ensureDatabaseStructure(): Promise<void> {
+    try {
+      // Crear tablas
+      await this.database.execute(this.tableUsers);
+      await this.database.execute(this.tableVinyls);
+      await this.database.execute(this.tableOrders);
+      
+      // Verificar si hay datos
+      const countResult = await this.database.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM Users) as userCount,
+          (SELECT COUNT(*) FROM Vinyls) as vinylCount
+      `);
+      
+      const counts = countResult.values?.[0];
+      console.log('Conteo de registros:', counts);
+  
+      // Si no hay datos, insertar datos de ejemplo
+      if (!counts || counts.vinylCount === 0) {
+        console.log('No hay datos, insertando datos iniciales...');
+        await this.insertSeedData().toPromise();
+      }
+  
+      // Asegurar que existe el admin
+      await this.createAdminIfNotExists();
+  
+      console.log('Estructura de base de datos verificada y completa');
+    } catch (error) {
+      console.error('Error ensuring database structure:', error);
+      throw error;
     }
   }
 
@@ -247,17 +273,18 @@ export class DatabaseService {
   );`;
 
   private readonly tableVinyls: string = `
-    CREATE TABLE IF NOT EXISTS Vinyls (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      titulo TEXT NOT NULL,
-      artista TEXT NOT NULL,
-      imagen TEXT,
-      descripcion TEXT,
-      tracklist TEXT,
-      stock INTEGER NOT NULL,
-      precio REAL NOT NULL,
-      IsAvailable BOOLEAN DEFAULT 1
-    );`;
+  CREATE TABLE IF NOT EXISTS Vinyls (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL,
+    artista TEXT NOT NULL,
+    imagen TEXT,
+    descripcion TEXT,
+    tracklist TEXT,
+    stock INTEGER NOT NULL,
+    precio REAL NOT NULL,
+    IsAvailable INTEGER DEFAULT 1
+  );
+`;
 
   private readonly tableOrders: string = `
     CREATE TABLE IF NOT EXISTS Orders (
@@ -368,6 +395,58 @@ getCurrentUser(): any {
   return this.currentSession.getValue();
 }
 
+getAllUsers(): Observable<any[]> {
+  const query = `
+    SELECT id, email, firstName, lastName, role 
+    FROM Users 
+    WHERE role != 'admin' 
+    ORDER BY email
+  `;
+  
+  return this.executeSQL(query).pipe(
+    map(result => {
+      if (result?.values) {
+        return result.values;
+      }
+      return [];
+    }),
+    catchError(error => {
+      console.error('Error getting users:', error);
+      return of([]);
+    })
+  );
+}
+
+deleteUser(userId: number): Observable<any> {
+  const query = 'DELETE FROM Users WHERE id = ? AND role != "admin"';
+  
+  return this.executeSQL(query, [userId]).pipe(
+    map(result => ({
+      success: true,
+      message: 'Usuario eliminado correctamente'
+    })),
+    catchError(error => {
+      console.error('Error deleting user:', error);
+      return of({
+        success: false,
+        error: 'Error al eliminar usuario'
+      });
+    })
+  );
+}
+
+async verifyAdmin() {
+  const query = 'SELECT * FROM Users WHERE role = "admin"';
+  try {
+    const result = await this.executeSQL(query).toPromise();
+    console.log('Usuarios admin encontrados:', result?.values);
+    return result?.values || [];
+  } catch (error) {
+    console.error('Error verificando admin:', error);
+    return [];
+  }
+}
+
 loginUser(email: string, password: string): Observable<any> {
   console.log('Intentando login con:', email);
   
@@ -380,6 +459,7 @@ loginUser(email: string, password: string): Observable<any> {
   return this.getDatabaseState().pipe(
     switchMap(ready => {
       if (!ready) {
+        console.error('Base de datos no está lista');
         throw new Error('Base de datos no está lista');
       }
       return this.executeSQL(query, [email, password]);
@@ -389,13 +469,24 @@ loginUser(email: string, password: string): Observable<any> {
       
       if (result && result.values && result.values.length > 0) {
         const user = result.values[0];
+        console.log('Usuario encontrado:', user);
         this.currentSession.next(user);
         return {
           success: true,
-          user: user
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            phoneNumber: user.phoneNumber,
+            address: user.address,
+            photo: user.photo
+          }
         };
       }
       
+      console.log('Credenciales incorrectas');
       this.currentSession.next(null);
       return {
         success: false,
@@ -411,6 +502,29 @@ loginUser(email: string, password: string): Observable<any> {
       });
     })
   );
+}
+
+async createAdminIfNotExists(): Promise<void> {
+  const query = `
+    INSERT OR REPLACE INTO Users (
+      firstName, lastName, email, password, phoneNumber, role
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  
+  try {
+    await this.database.run(query, [
+      'Admin',
+      'Sistema',
+      'admin@vinyls.com',
+      'admin123',
+      '966189341',
+      'admin'
+    ]);
+    console.log('Usuario admin verificado/creado exitosamente');
+  } catch (error) {
+    console.error('Error al verificar/crear admin:', error);
+    throw error;
+  }
 }
 
 logout(): void {
@@ -460,58 +574,107 @@ isAuthenticated(): boolean {
 
   createVinyl(vinyl: Vinyl): Observable<number> {
     return this.executeSQL(
-      'INSERT INTO Vinyls (titulo, artista, imagen, descripcion, tracklist, stock, precio, IsAvailable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [vinyl.titulo, vinyl.artista, vinyl.imagen, JSON.stringify(vinyl.descripcion), JSON.stringify(vinyl.tracklist), vinyl.stock, vinyl.precio, vinyl.IsAvailable ? 1 : 0]
+      `INSERT INTO Vinyls (
+        titulo, artista, imagen, descripcion, tracklist, 
+        stock, precio, IsAvailable
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        vinyl.titulo,
+        vinyl.artista,
+        vinyl.imagen,
+        JSON.stringify(vinyl.descripcion),
+        JSON.stringify(vinyl.tracklist),
+        vinyl.stock,
+        vinyl.precio,
+        vinyl.IsAvailable ? 1 : 0
+      ]
     ).pipe(
-      map(data => data.changes?.lastId || -1),
+      map(result => result.changes?.lastId || -1),
       catchError(error => {
         console.error('Error creating vinyl:', error);
-        throw error;
+        return of(-1);
       })
     );
   }
 
   getVinyls(): Observable<Vinyl[]> {
-    return this.dbReady.pipe(
-      take(1),
+    console.log('Iniciando obtención de vinilos');
+  
+    return this.getDatabaseState().pipe(
+      tap(ready => console.log('Estado de la base de datos:', ready)),
       switchMap(ready => {
         if (!ready) {
-          console.log('Database not ready, initializing...');
-          return from(this.initializeDatabase()).pipe(
-            switchMap(() => this.executeSQL('SELECT * FROM Vinyls'))
-          );
+          console.error('Base de datos no está lista');
+          throw new Error('Base de datos no está lista');
         }
-        return this.executeSQL('SELECT * FROM Vinyls');
+  
+        return from(this.verifyVinylsTable()).pipe(
+          switchMap(() => this.executeSQL('SELECT * FROM Vinyls ORDER BY id DESC'))
+        );
       }),
       map(result => {
-        console.log('Raw vinyl data:', result);
-        if (!result.values?.length) {
-          console.log('No vinyls found in database');
+        console.log('Resultado raw de vinilos:', result);
+  
+        if (!result?.values?.length) {
+          console.log('No se encontraron vinilos');
           return [];
         }
-
-        return result.values.map(item => ({
-          id: item.id,
-          titulo: item.titulo,
-          artista: item.artista,
-          imagen: item.imagen,
-          descripcion: typeof item.descripcion === 'string' ? 
-            JSON.parse(item.descripcion) : item.descripcion,
-          tracklist: typeof item.tracklist === 'string' ? 
-            JSON.parse(item.tracklist) : item.tracklist,
-          stock: item.stock,
-          precio: item.precio,
-          IsAvailable: Boolean(item.IsAvailable)
-        }));
+  
+        return result.values.map(item => {
+          try {
+            return {
+              id: item.id,
+              titulo: item.titulo,
+              artista: item.artista,
+              imagen: item.imagen,
+              descripcion: this.parseJsonSafely(item.descripcion),
+              tracklist: this.parseJsonSafely(item.tracklist),
+              stock: item.stock,
+              precio: item.precio,
+              IsAvailable: Boolean(item.IsAvailable)
+            };
+          } catch (error) {
+            console.error('Error procesando vinilo:', error, item);
+            return null;
+          }
+        }).filter(Boolean) as Vinyl[];
       }),
-      tap(vinyls => console.log('Processed vinyls:', vinyls)),
+      tap(vinyls => console.log('Vinilos procesados:', vinyls.length)),
       catchError(error => {
-        console.error('Error fetching vinyls:', error);
+        console.error('Error en getVinyls:', error);
         return of([]);
       })
     );
   }
   
+  private async verifyVinylsTable(): Promise<void> {
+    try {
+      // Verificar si la tabla existe
+      const tableExists = await this.database.query(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='Vinyls';
+      `);
+  
+      if (!tableExists.values?.length) {
+        console.log('Tabla Vinyls no existe, creando...');
+        await this.database.execute(this.tableVinyls);
+        await this.insertSeedData().toPromise();
+      }
+    } catch (error) {
+      console.error('Error verificando tabla Vinyls:', error);
+      throw error;
+    }
+  }
+  
+  private parseJsonSafely(value: string | any[]): string[] {
+    if (Array.isArray(value)) return value;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [String(parsed)];
+    } catch {
+      return [String(value)];
+    }
+  }
 
   getOrders(userId?: number): Observable<Order[]> {
     let query = 'SELECT * FROM Orders';
@@ -708,21 +871,95 @@ isAuthenticated(): boolean {
     );
   }
 
+  updateVinyl(vinilo: Vinyl): Observable<any> {
+    if (!vinilo.id) {
+      return of({ success: false, error: 'ID no proporcionado' });
+    }
   
+    const query = `
+      UPDATE Vinyls 
+      SET 
+        titulo = ?,
+        artista = ?,
+        imagen = ?,
+        descripcion = ?,
+        tracklist = ?,
+        stock = ?,
+        precio = ?,
+        IsAvailable = ?
+      WHERE id = ?
+    `;
+  
+    return this.executeSQL(query, [
+      vinilo.titulo,
+      vinilo.artista,
+      vinilo.imagen,
+      JSON.stringify(vinilo.descripcion),
+      JSON.stringify(vinilo.tracklist),
+      vinilo.stock,
+      vinilo.precio,
+      vinilo.IsAvailable ? 1 : 0,
+      vinilo.id
+    ]);
+  }
+  
+  deleteVinyl(id: number): Observable<any> {
+    const query = 'DELETE FROM Vinyls WHERE id = ?';
+    return this.executeSQL(query, [id]);
+  }
+
+  async checkAndCreateTables() {
+    try {
+      const tableCheck = await this.executeSQL(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='Vinyls';
+      `).toPromise();
+  
+      if (!tableCheck?.values?.length) {
+        console.log('Creando tabla Vinyls...');
+        await this.database.execute(this.tableVinyls);
+        await this.insertSeedData().toPromise();
+      }
+  
+      const vinylCount = await this.executeSQL('SELECT COUNT(*) as count FROM Vinyls').toPromise();
+      if (vinylCount?.values?.[0].count === 0) {
+        console.log('Insertando datos iniciales...');
+        await this.insertSeedData().toPromise();
+      }
+  
+      return true;
+    } catch (error) {
+      console.error('Error en verificación de tablas:', error);
+      return false;
+    }
+  }
 
   private insertSeedData(): Observable<boolean> {
     console.log('Insertando datos de ejemplo');
   
-    const users = [{
-      firstName: 'Usuario',
-      lastName: 'Ejemplo',
-      email: 'usuario@example.com',
-      password: '123456',
-      phoneNumber: '966189340',
-      role: 'user',
-      address: null,
-      photo: null
-    }];
+    const users = [
+      {
+        firstName: 'Usuario',
+        lastName: 'Ejemplo',
+        email: 'usuario@example.com',
+        password: '123456',
+        phoneNumber: '966189340',
+        role: 'user',
+        address: null,
+        photo: null
+      },
+      // Usuario Administrador
+      {
+        firstName: 'Admin',
+        lastName: 'Sistema',
+        email: 'admin@vinyls.com',
+        password: 'admin123',
+        phoneNumber: '966189341',
+        role: 'admin',
+        address: null,
+        photo: null
+      }
+    ];
   
     const products: Vinyl[] = [
       { 
