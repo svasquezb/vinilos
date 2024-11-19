@@ -766,6 +766,45 @@ isAuthenticated(): boolean {
     );
   }
 
+  updateMultipleStocks(items: {id: number, newStock: number}[]): Observable<boolean> {
+    const updates = items.map(item => 
+      this.executeSQL(
+        'UPDATE Vinyls SET stock = ? WHERE id = ?',
+        [item.newStock, item.id]
+      )
+    );
+    
+    return from(Promise.all(updates)).pipe(
+      map(() => true),
+      catchError(error => {
+        console.error('Error updating stocks:', error);
+        return of(false);
+      })
+    );
+  }
+
+  updateUserRole(userId: number, newRole: 'admin' | 'user'): Observable<any> {
+    const query = `
+      UPDATE Users 
+      SET role = ?
+      WHERE id = ? AND email != 'admin@vinyls.com'
+    `;
+  
+    return this.executeSQL(query, [newRole, userId]).pipe(
+      map(result => ({
+        success: true,
+        message: 'Rol actualizado correctamente'
+      })),
+      catchError(error => {
+        console.error('Error actualizando rol:', error);
+        return of({
+          success: false,
+          error: 'Error al actualizar el rol'
+        });
+      })
+    );
+  }
+
   getUserByEmail(email: string): Observable<any> {
     return this.executeSQL(
       'SELECT * FROM Users WHERE email = ? LIMIT 1',

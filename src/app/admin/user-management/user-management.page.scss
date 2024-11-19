@@ -81,8 +81,9 @@ ion-card {
       h2 {
         color: map-get($colors, 'text');
         font-size: 1.1rem;
-        margin-bottom: 4px;
+        margin: 0;
       }
+    
 
       ion-item-option {
         font-family: 'Georgia', serif;
@@ -116,9 +117,9 @@ ion-card {
   padding: $spacing * 2;
   
   ion-icon {
-    font-size: 48px;
-    color: map-get($colors, 'secondary');
-    margin-bottom: $spacing;
+    font-size: 24px;
+    color: map-get($colors, 'primary');
+    margin-right: $spacing;
   }
   
   p {
@@ -166,5 +167,69 @@ ion-card {
   ion-content::part(scroll) {
     max-width: 768px;
     margin: 0 auto;
+  }
+}
+
+.user-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  
+  .user-info {
+    width: 100%;
+    padding: $spacing;
+    
+    .user-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: $spacing/2;
+      
+      ion-icon {
+        font-size: 24px;
+        color: map-get($colors, 'primary');
+        margin-right: $spacing;
+      }
+      
+      h2 {
+        color: map-get($colors, 'text');
+        font-size: 1.1rem;
+        margin: 0;
+      }
+    }
+    
+    .user-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-left: $spacing * 2;
+      
+      p {
+        color: map-get($colors, 'text');
+        margin: 0;
+        font-size: 0.9rem;
+      }
+      
+      .role-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        
+        &.admin {
+          background-color: map-get($colors, 'primary');
+          color: map-get($colors, 'text-light');
+        }
+        
+        &.user {
+          background-color: map-get($colors, 'secondary');
+          color: map-get($colors, 'text');
+        }
+      }
+    }
+  }
+}
+
+ion-item-option {
+  &[color="warning"] {
+    --ion-color-base: #{map-get($colors, 'accent')};
   }
 }

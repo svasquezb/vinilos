@@ -8,13 +8,11 @@
 </ion-header>
 
 <ion-content class="ion-padding">
-  <!-- Loading spinner -->
   <div class="loading-container" *ngIf="loading">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Cargando usuarios...</p>
   </div>
 
-  <!-- Lista de usuarios -->
   <ion-card *ngIf="!loading">
     <ion-card-header>
       <ion-card-title>
@@ -26,13 +24,25 @@
     <ion-card-content>
       <ion-list *ngIf="users.length > 0">
         <ion-item-sliding *ngFor="let user of users">
-          <ion-item>
-            <ion-label>
-              <h2>{{ user.email }}</h2>
-            </ion-label>
+          <ion-item class="user-item">
+            <div class="user-info">
+              <div class="user-header">
+                <ion-icon name="person-circle-outline"></ion-icon>
+                <h2>{{ user.email }}</h2>
+              </div>
+              <div class="user-details">
+                <p>{{ user.firstName }} {{ user.lastName }}</p>
+                <div class="role-badge" [ngClass]="user.role">
+                  {{ user.role === 'admin' ? 'Administrador' : 'Usuario' }}
+                </div>
+              </div>
+            </div>
           </ion-item>
 
           <ion-item-options side="end">
+            <ion-item-option color="warning" (click)="changeRole(user)">
+              <ion-icon slot="icon-only" name="swap-horizontal"></ion-icon>
+            </ion-item-option>
             <ion-item-option color="danger" (click)="confirmDelete(user)">
               <ion-icon slot="icon-only" name="trash"></ion-icon>
             </ion-item-option>
@@ -40,7 +50,6 @@
         </ion-item-sliding>
       </ion-list>
 
-      <!-- Mensaje cuando no hay usuarios -->
       <div class="empty-state" *ngIf="users.length === 0">
         <ion-icon name="people-outline" size="large"></ion-icon>
         <p>No hay usuarios registrados</p>

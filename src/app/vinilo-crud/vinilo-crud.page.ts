@@ -124,10 +124,10 @@ export class ViniloCrudPage implements OnInit {
       vinilo.descripcion[0].trim() !== '' &&
       vinilo.tracklist.length > 0 &&
       vinilo.tracklist[0].trim() !== '' &&
-      vinilo.stock > 0 &&
+      vinilo.stock >= 0 &&  // Permitir el stock en 0
       vinilo.precio > 0
     );
-  }
+   }
 
   editarVinilo(vinilo: Vinyl) {
     this.modoEdicion = true;
@@ -161,6 +161,32 @@ export class ViniloCrudPage implements OnInit {
       await this.presentToast('Error al actualizar el vinilo', 'danger');
     } finally {
       await loading.dismiss();
+    }
+  }
+
+  async onPhotoSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+  
+    if (file.size > 5000000) {
+      await this.presentToast('La imagen es demasiado grande. Máximo 5MB', 'warning');
+      return;
+    }
+  
+    try {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const photoData = e.target.result;
+        if (this.modoEdicion && this.viniloEditando) {
+          this.viniloEditando.imagen = photoData;
+        } else {
+          this.nuevoVinilo.imagen = photoData;
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      await this.presentToast('Error al procesar la imagen', 'danger');
     }
   }
 

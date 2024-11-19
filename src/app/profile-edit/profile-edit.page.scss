@@ -61,9 +61,8 @@ ion-toolbar {
     width: 200px;
     height: 200px;
     margin: 0 auto $spacing;
-    border-radius: 50%;
-    border: 3px solid map-get($colors, 'primary');
-    object-fit: cover;
+    border-radius: 4px; // Changed from 50% to 4px for square look
+    object-fit: cover; // This ensures the image fills the container
     transition: transform $transition;
 
     &:hover {
@@ -192,14 +191,14 @@ ion-button {
   }
 
   .profile-photo-container ion-img {
-    width: 250px;
-    height: 250px;
+    width: 300px; // Increased from 250px
+    height: 300px;
   }
 }
 
 @media (max-width: 576px) {
   .profile-photo-container ion-img {
-    width: 150px;
-    height: 150px;
+    width: 200px; // Increased from 150px
+    height: 200px;
   }
 }

@@ -101,13 +101,6 @@ export class VinilosPage implements OnInit {
       try {
         const added = await this.cartService.addToCart(this.viniloSeleccionado);
         if (added) {
-          await firstValueFrom(
-            this.databaseService.updateVinylStock(
-              this.viniloSeleccionado.id,
-              this.viniloSeleccionado.stock - 1
-            )
-          );
-          await this.cargarVinilos();
           this.cerrarDescripcion();
         }
       } catch (error) {

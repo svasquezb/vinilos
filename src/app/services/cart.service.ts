@@ -71,15 +71,39 @@ export class CartService {
       return false;
     }
   
+    // Verificar stock disponible
+    if (vinyl.stock <= 0) {
+      const toast = await this.toastController.create({
+        message: 'Producto sin stock disponible',
+        duration: 2000,
+        position: 'bottom',
+        color: 'warning'
+      });
+      await toast.present();
+      return false;
+    }
+  
     try {
       const existingVinyl = this.cart.find(item => item.id === vinyl.id);
+      
+      // Verificar que la cantidad en carrito no exceda el stock
       if (existingVinyl) {
+        if (existingVinyl.quantity >= vinyl.stock) {
+          const toast = await this.toastController.create({
+            message: 'Stock insuficiente',
+            duration: 2000,
+            position: 'bottom',
+            color: 'warning'
+          });
+          await toast.present();
+          return false;
+        }
         existingVinyl.quantity += 1;
       } else {
         const cartItem: CartVinyl = { ...vinyl, quantity: 1 };
         this.cart.push(cartItem);
       }
-      
+  
       this.cartSubject.next(this.cart);
       await this.saveCart();
       
@@ -95,7 +119,7 @@ export class CartService {
       console.error('Error adding to cart:', error);
       const toast = await this.toastController.create({
         message: 'Error al agregar al carrito',
-        duration: 2000,
+        duration: 2000, 
         position: 'bottom',
         color: 'danger'
       });

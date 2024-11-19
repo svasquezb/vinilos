@@ -43,6 +43,59 @@ export class UserManagementPage implements OnInit {
     }
   }
 
+  async changeRole(user: User) {
+    const alert = await this.alertController.create({
+      header: 'Cambiar Rol',
+      message: `¿Desea cambiar el rol de ${user.email}?`,
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Cambiar',
+          handler: () => {
+            const newRole = user.role === 'admin' ? 'user' : 'admin';
+            this.updateUserRole(user.id, newRole);
+          }
+        }
+      ],
+      cssClass: 'custom-alert'
+    });
+  
+    await alert.present();
+  }
+  
+  private async updateUserRole(userId: number, newRole: 'admin' | 'user') {
+    const loading = await this.loadingController.create({
+      message: 'Actualizando rol...',
+      cssClass: 'custom-loading'
+    });
+    await loading.present();
+  
+    try {
+      const result = await firstValueFrom(
+        this.databaseService.updateUserRole(userId, newRole)
+      );
+  
+      if (result.success) {
+        await this.presentToast('Rol actualizado correctamente', 'success');
+        await this.loadUsers();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error('Error updating role:', error);
+      await this.presentToast(
+        error.message || 'Error al actualizar rol',
+        'danger'
+      );
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
   async confirmDelete(user: User) {
     const alert = await this.alertController.create({
       header: 'Confirmar eliminación',

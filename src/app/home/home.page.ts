@@ -101,20 +101,13 @@ export class HomePage implements OnInit, OnDestroy {
       try {
         const added = await this.cartService.addToCart(this.viniloSeleccionado);
         if (added) {
-          await firstValueFrom(
-            this.databaseService.updateVinylStock(
-              this.viniloSeleccionado.id,
-              this.viniloSeleccionado.stock - 1
-            )
-          );
-          await this.cargarVinilosDestacados();
           this.cerrarDescripcion();
         }
       } catch (error) {
         console.error('Error al agregar al carrito:', error);
       }
     }
-  }
+   }
 
   async presentToast(message: string, color: string = 'success') {
     const toast = await this.toastController.create({
