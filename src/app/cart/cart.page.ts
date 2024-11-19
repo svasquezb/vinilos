@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CartService, CartVinyl } from '../services/cart.service';
+import { NavController, ToastController } from '@ionic/angular';
 
 @Component({
   selector: 'app-cart',
@@ -10,7 +11,11 @@ export class CartPage implements OnInit {
   cart: (CartVinyl & { id: number })[] = [];
   total = 0;
 
-  constructor(private cartService: CartService) { }
+  constructor(
+    private cartService: CartService,
+    private navCtrl: NavController,
+    private toastController: ToastController
+  ) {}
 
   ngOnInit() {
     this.cartService.getCart().subscribe((cart) => {
@@ -33,11 +38,24 @@ export class CartPage implements OnInit {
       this.cartService.removeFromCart(vinylId);
     } else {
       console.error('Attempted to remove item with undefined id');
-      // Opcionalmente, puedes mostrar un mensaje al usuario
     }
   }
 
   clearCart() {
     this.cartService.clearCart();
+  }
+
+  async procederAlPago() {
+    if (this.cart.length > 0) {
+      await this.navCtrl.navigateForward('/checkout');
+    } else {
+      const toast = await this.toastController.create({
+        message: 'El carrito está vacío',
+        duration: 2000,
+        position: 'bottom',
+        color: 'warning'
+      });
+      await toast.present();
+    }
   }
 }

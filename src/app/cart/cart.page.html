@@ -4,8 +4,8 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-list>
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-list *ngIf="cart.length > 0">
     <ion-item *ngFor="let vinyl of cart">
       <ion-thumbnail slot="start">
         <img [src]="vinyl.imagen" />
@@ -17,21 +17,39 @@
         <p>Precio: {{ vinyl.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
       </ion-label>
       <ion-button fill="outline" slot="end" (click)="removeItem(vinyl.id)">
-        Eliminar
+        <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
       </ion-button>
+    </ion-item>
+
+    <ion-item lines="none">
+      <ion-label>
+        <h2>Total:</h2>
+      </ion-label>
+      <ion-note slot="end" color="primary">{{ getFormattedTotal() }}</ion-note>
     </ion-item>
   </ion-list>
 
-  <ion-item *ngIf="cart.length > 0">
-    <ion-label>Total:</ion-label>
-    <ion-note slot="end">{{ getFormattedTotal() }}</ion-note>
-  </ion-item>
+  <div class="cart-actions" *ngIf="cart.length > 0">
+    <ion-button expand="block" (click)="procederAlPago()" class="checkout-button">
+      <ion-icon name="cash-outline" slot="start"></ion-icon>
+      Proceder al Pago
+    </ion-button>
 
-  <ion-button expand="block" color="danger" (click)="clearCart()" *ngIf="cart.length > 0">
-    Vaciar Carrito
-  </ion-button>
+    <ion-button expand="block" color="danger" (click)="clearCart()" class="clear-button">
+      <ion-icon name="trash-outline" slot="start"></ion-icon>
+      Vaciar Carrito
+    </ion-button>
+  </div>
 
-  <ion-item *ngIf="cart.length === 0">
-    <ion-label>El carrito está vacío</ion-label>
-  </ion-item>
+  <ion-card *ngIf="cart.length === 0" class="empty-cart">
+    <ion-card-content>
+      <ion-icon name="cart-outline" class="empty-cart-icon"></ion-icon>
+      <h2>El carrito está vacío</h2>
+      <p>Agrega algunos vinilos para continuar</p>
+      <ion-button routerLink="/vinilos" expand="block">
+        <ion-icon name="disc-outline" slot="start"></ion-icon>
+        Ir a Vinilos
+      </ion-button>
+    </ion-card-content>
+  </ion-card>
 </ion-content>

@@ -124,6 +124,7 @@ export class DatabaseService {
       await this.database.execute(this.tableUsers);
       await this.database.execute(this.tableVinyls);
       await this.database.execute(this.tableOrders);
+      await this.database.execute(this.tableCart);
       
       // Verificar si hay datos
       const countResult = await this.database.query(`
@@ -297,6 +298,18 @@ export class DatabaseService {
       FOREIGN KEY (userId) REFERENCES Users(id)
     );`;
 
+    private readonly tableCart = `
+  CREATE TABLE IF NOT EXISTS Carts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL,
+    vinylId INTEGER NOT NULL,
+    quantity INTEGER NOT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (userId) REFERENCES Users(id),
+    FOREIGN KEY (vinylId) REFERENCES Vinyls(id)
+  );
+`;
+
   async presentAlert(titulo: string, msj: string): Promise<void> {
     const alert = await this.alertController.create({
       header: titulo,
@@ -412,6 +425,56 @@ getAllUsers(): Observable<any[]> {
     }),
     catchError(error => {
       console.error('Error getting users:', error);
+      return of([]);
+    })
+  );
+}
+
+saveCartToDatabase(userId: number, cartItems: any[]): Observable<boolean> {
+  return from(this.database.run('DELETE FROM Carts WHERE userId = ?', [userId])).pipe(
+    switchMap(() => {
+      const insertPromises = cartItems.map(item =>
+        this.database.run(
+          'INSERT INTO Carts (userId, vinylId, quantity) VALUES (?, ?, ?)',
+          [userId, item.vinyl.id, item.quantity]
+        )
+      );
+      return from(Promise.all(insertPromises));
+    }),
+    map(() => true),
+    catchError(error => {
+      console.error('Error saving cart:', error);
+      return of(false);
+    })
+  );
+}
+
+getCartFromDatabase(userId: number): Observable<any[]> {
+  return this.executeSQL(
+    `SELECT c.*, v.* FROM Carts c 
+     JOIN Vinyls v ON c.vinylId = v.id 
+     WHERE c.userId = ?`,
+    [userId]
+  ).pipe(
+    map(result => {
+      if (!result.values) return [];
+      return result.values.map(row => ({
+        vinyl: {
+          id: row.vinylId,
+          titulo: row.titulo,
+          artista: row.artista,
+          imagen: row.imagen,
+          descripcion: JSON.parse(row.descripcion),
+          tracklist: JSON.parse(row.tracklist),
+          stock: row.stock,
+          precio: row.precio,
+          IsAvailable: Boolean(row.IsAvailable)
+        },
+        quantity: row.quantity
+      }));
+    }),
+    catchError(error => {
+      console.error('Error loading cart:', error);
       return of([]);
     })
   );

@@ -13,11 +13,13 @@ $light-text-color: #FFF8DC; // Cornsilk
   box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
 }
 
+// Base styles
 ion-content {
   --background: #{$background-color};
   font-family: 'Georgia', serif;
 }
 
+// Header
 ion-header ion-toolbar {
   --background: #{$primary-color};
   
@@ -30,81 +32,113 @@ ion-header ion-toolbar {
   }
 }
 
+// Lista y items
 ion-list {
   background: transparent;
   padding: 16px;
+
+  ion-item {
+    --background: #{$card-background};
+    margin-bottom: 16px;
+    @include vintage-border;
+
+    ion-thumbnail {
+      --size: 80px;
+      --border-radius: 0;
+      @include vintage-border;
+      overflow: hidden;
+
+      img {
+        object-fit: cover;
+        width: 100%;
+        height: 100%;
+      }
+    }
+
+    ion-label {
+      h2 {
+        font-family: 'Playfair Display', serif;
+        color: $primary-color;
+        font-size: 1.2em;
+        font-weight: bold;
+      }
+
+      p {
+        color: $text-color;
+        font-style: italic;
+      }
+    }
+
+    ion-button {
+      --color: #{$primary-color};
+      --border-color: #{$primary-color};
+      font-family: 'Georgia', serif;
+    }
+
+    // Item total
+    &:last-of-type {
+      --background: transparent;
+      --border-color: transparent;
+      box-shadow: none;
+
+      ion-label, ion-note {
+        color: $primary-color;
+        font-weight: bold;
+        font-size: 1.2em;
+      }
+    }
+  }
 }
 
-ion-item {
-  --background: #{$card-background};
-  margin-bottom: 16px;
-  @include vintage-border;
-
-  ion-thumbnail {
-    --size: 80px;
-    --border-radius: 0;
-    @include vintage-border;
-    overflow: hidden;
-
-    img {
-      object-fit: cover;
-      width: 100%;
-      height: 100%;
-    }
-  }
-
-  ion-label {
-    h2 {
-      font-family: 'Playfair Display', serif;
-      color: $primary-color;
-      font-size: 1.2em;
-      font-weight: bold;
-    }
-
-    p {
-      color: $text-color;
-      font-style: italic;
-    }
-  }
+// Botones de acción
+.cart-actions {
+  padding: 16px;
 
   ion-button {
-    --color: #{$primary-color};
-    --border-color: #{$primary-color};
+    margin-bottom: 8px;
     font-family: 'Georgia', serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    @include vintage-border;
+
+    &[color="danger"] {
+      --background: #{$primary-color};
+      --color: #{$light-text-color};
+
+      &:hover {
+        --background: #{$accent-color};
+      }
+    }
+
+    &.checkout-button {
+      --background: #{$accent-color};
+      --color: #{$light-text-color};
+      
+      ion-icon {
+        margin-right: 8px;
+      }
+    }
   }
 }
 
-ion-item:last-of-type {
-  --background: transparent;
-  --border-color: transparent;
-  box-shadow: none;
-
-  ion-label, ion-note {
-    color: $primary-color;
-    font-weight: bold;
-    font-size: 1.2em;
-  }
-}
-
-ion-button[color="danger"] {
-  --background: #{$primary-color};
-  --color: #{$light-text-color};
-  margin: 16px;
-  @include vintage-border;
-  font-family: 'Georgia', serif;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-
-  &:hover {
-    --background: #{$accent-color};
-  }
-}
-
+// Estado vacío
 .empty-cart {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   height: 200px;
   font-style: italic;
   color: $text-color;
+  text-align: center;
+
+  ion-icon {
+    font-size: 48px;
+    color: $accent-color;
+    margin-bottom: 16px;
+  }
+
+  ion-button {
+    margin-top: 16px;
+  }
 }

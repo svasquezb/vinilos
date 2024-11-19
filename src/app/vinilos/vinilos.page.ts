@@ -2,8 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CartService } from '../services/cart.service';
 import { NavController, ToastController, LoadingController } from '@ionic/angular';
 import { DatabaseService } from '../services/database.service';
-import { Vinyl } from '../models/vinilos.model';
 import { firstValueFrom } from 'rxjs';
+import { filter, take } from 'rxjs/operators';
+import { Vinyl } from '../models/vinilos.model';
 
 @Component({
   selector: 'app-vinilos',
@@ -24,8 +25,17 @@ export class VinilosPage implements OnInit {
     private toastController: ToastController,
     private loadingController: LoadingController
   ) {}
+
   async ngOnInit() {
+    await this.esperarBaseDatos();
     await this.cargarVinilos();
+  }
+
+  private async esperarBaseDatos() {
+    await firstValueFrom(this.databaseService.getDatabaseState().pipe(
+      filter(ready => ready === true),
+      take(1)
+    ));
   }
 
   async cargarVinilos() {
@@ -36,14 +46,13 @@ export class VinilosPage implements OnInit {
     await loading.present();
 
     try {
-      console.log('Iniciando carga de vinilos');
       const vinilosFromDB = await firstValueFrom(this.databaseService.getVinyls());
-      
-      console.log('Vinilos obtenidos:', vinilosFromDB);
       
       if (!vinilosFromDB || vinilosFromDB.length === 0) {
         console.log('No se encontraron vinilos');
         await this.presentToast('No se encontraron vinilos disponibles', 'warning');
+        this.vinilos = [];
+        this.vinilosFiltrados = [];
         return;
       }
 
@@ -90,35 +99,30 @@ export class VinilosPage implements OnInit {
   async agregarAlCarrito() {
     if (this.viniloSeleccionado && this.viniloSeleccionado.id !== undefined) {
       try {
-        await firstValueFrom(this.databaseService.updateVinylStock(this.viniloSeleccionado.id, this.viniloSeleccionado.stock - 1));
-        
-        const viniloParaCarrito: Vinyl & { id: number } = {
-          ...this.viniloSeleccionado,
-          id: this.viniloSeleccionado.id
-        };
-        
-        this.cartService.addToCart(viniloParaCarrito);
-        await this.presentToast(`${this.viniloSeleccionado.titulo} agregado al carrito`);
-        
-        await this.cargarVinilos();
-        
-        this.cerrarDescripcion();
+        const added = await this.cartService.addToCart(this.viniloSeleccionado);
+        if (added) {
+          await firstValueFrom(
+            this.databaseService.updateVinylStock(
+              this.viniloSeleccionado.id,
+              this.viniloSeleccionado.stock - 1
+            )
+          );
+          await this.cargarVinilos();
+          this.cerrarDescripcion();
+        }
       } catch (error) {
         console.error('Error al agregar al carrito:', error);
-        await this.presentToast('Error al agregar al carrito. Por favor, intente de nuevo.', 'danger');
       }
-    } else {
-      await this.presentToast('No se puede agregar este vinilo al carrito.', 'danger');
     }
   }
 
   async presentToast(message: string, color: string = 'success') {
     const toast = await this.toastController.create({
-      message: message,
+      message,
       duration: 2000,
       position: 'bottom',
-      color: color
+      color
     });
-    toast.present();
+    await toast.present();
   }
 }

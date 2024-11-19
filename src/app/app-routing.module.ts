@@ -37,6 +37,10 @@ const routes: Routes = [
   },  {
     path: 'user-management',
     loadChildren: () => import('./admin/user-management/user-management.module').then( m => m.UserManagementPageModule)
+  },
+  {
+    path: 'checkout',
+    loadChildren: () => import('./checkout/checkout.module').then( m => m.CheckoutPageModule)
   }
 
 ];
