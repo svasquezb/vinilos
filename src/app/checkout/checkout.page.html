@@ -11,13 +11,16 @@
   <form [formGroup]="checkoutForm" (ngSubmit)="onSubmit()">
     <ion-card>
       <ion-card-header>
-        <ion-card-title>Información de Envío</ion-card-title>
+        <ion-card-title>
+          <ion-icon name="person-outline" slot="start"></ion-icon>
+          Información de Envío
+        </ion-card-title>
       </ion-card-header>
 
       <ion-card-content>
         <ion-item>
           <ion-label position="stacked">Nombre Completo *</ion-label>
-          <ion-input formControlName="nombre" type="text"></ion-input>
+          <ion-input formControlName="nombre" type="text" placeholder="Ingrese su nombre completo"></ion-input>
           <ion-note color="danger" *ngIf="checkoutForm.get('nombre')?.invalid && checkoutForm.get('nombre')?.touched">
             {{ getErrorMessage('nombre') }}
           </ion-note>
@@ -25,7 +28,7 @@
 
         <ion-item>
           <ion-label position="stacked">Email *</ion-label>
-          <ion-input formControlName="email" type="email"></ion-input>
+          <ion-input formControlName="email" type="email" placeholder="ejemplo@email.com"></ion-input>
           <ion-note color="danger" *ngIf="checkoutForm.get('email')?.invalid && checkoutForm.get('email')?.touched">
             {{ getErrorMessage('email') }}
           </ion-note>
@@ -33,7 +36,7 @@
 
         <ion-item>
           <ion-label position="stacked">Teléfono *</ion-label>
-          <ion-input formControlName="telefono" type="tel" maxlength="9"></ion-input>
+          <ion-input formControlName="telefono" type="tel" maxlength="9" placeholder="912345678"></ion-input>
           <ion-note color="danger" *ngIf="checkoutForm.get('telefono')?.invalid && checkoutForm.get('telefono')?.touched">
             {{ getErrorMessage('telefono') }}
           </ion-note>
@@ -41,7 +44,7 @@
 
         <ion-item>
           <ion-label position="stacked">Dirección de Envío *</ion-label>
-          <ion-textarea formControlName="direccion" rows="3"></ion-textarea>
+          <ion-textarea formControlName="direccion" rows="3" placeholder="Ingrese su dirección completa"></ion-textarea>
           <ion-note color="danger" *ngIf="checkoutForm.get('direccion')?.invalid && checkoutForm.get('direccion')?.touched">
             {{ getErrorMessage('direccion') }}
           </ion-note>
@@ -49,7 +52,7 @@
 
         <ion-item>
           <ion-label position="stacked">Método de Pago *</ion-label>
-          <ion-select formControlName="metodoPago">
+          <ion-select formControlName="metodoPago" placeholder="Seleccione método de pago">
             <ion-select-option *ngFor="let method of paymentMethods" [value]="method.value">
               {{ method.label }}
             </ion-select-option>
@@ -63,31 +66,35 @@
 
     <ion-card>
       <ion-card-header>
-        <ion-card-title>Resumen del Pedido</ion-card-title>
+        <ion-card-title>
+          <ion-icon name="cart-outline" slot="start"></ion-icon>
+          Resumen del Pedido
+        </ion-card-title>
       </ion-card-header>
 
       <ion-card-content>
         <ion-list>
-          <ion-item *ngFor="let item of cartItems">
-            <ion-thumbnail slot="start">
-              <img [src]="item.vinyl.imagen" [alt]="item.vinyl.titulo">
+          <ion-item *ngFor="let item of cartItems" lines="full">
+            <ion-thumbnail slot="start" *ngIf="item.imagen">
+              <img [src]="item.imagen" [alt]="item.titulo">
             </ion-thumbnail>
             <ion-label>
-              <h2>{{ item.vinyl.titulo }}</h2>
-              <p>{{ item.vinyl.artista }}</p>
+              <h2>{{ item.titulo }}</h2>
+              <p>{{ item.artista }}</p>
               <p>Cantidad: {{ item.quantity }}</p>
-              <p>{{ item.vinyl.precio * item.quantity | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+              <p class="precio">{{ formatPrice(item.precio * item.quantity) }}</p>
             </ion-label>
           </ion-item>
         </ion-list>
 
         <div class="total-section">
-          <h2>Total a Pagar: {{ total | currency:'CLP':'symbol-narrow':'1.0-0' }}</h2>
+          <h2>Total a Pagar: {{ formatPrice(total) }}</h2>
         </div>
       </ion-card-content>
     </ion-card>
 
-    <ion-button expand="block" type="submit" [disabled]="checkoutForm.invalid">
+    <ion-button expand="block" type="submit" [disabled]="checkoutForm.invalid" class="submit-button">
+      <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
       Confirmar Pedido
     </ion-button>
   </form>

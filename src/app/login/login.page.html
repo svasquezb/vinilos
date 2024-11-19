@@ -14,8 +14,12 @@
         <span class="input-line"></span>
         <label for="password">Contraseña</label>
       </div>
+      
       <a [routerLink]="['/register']">Registrate</a>
       <ion-button expand="full" type="submit">Iniciar Sesión</ion-button>
+      <ion-button fill="clear" expand="block" routerLink="/forgot-password">
+        ¿Olvidaste tu contraseña?
+      </ion-button>
     </form>
   </div>
 </ion-content>

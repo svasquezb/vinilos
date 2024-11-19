@@ -60,7 +60,6 @@ export class CheckoutPage implements OnInit {
     await loading.present();
 
     try {
-      // Preparar los detalles del carrito para el email
       const cartDetails = this.cartItems.map(item => `
         Título: ${item.titulo}
         Artista: ${item.artista}
@@ -70,17 +69,17 @@ export class CheckoutPage implements OnInit {
       `).join('\n\n');
 
       const templateParams = {
+        to_email: this.checkoutForm.value.email,  // Email del cliente
         to_name: this.checkoutForm.value.nombre,
-        to_email: this.checkoutForm.value.email,
         phone: this.checkoutForm.value.telefono,
         address: this.checkoutForm.value.direccion,
         payment_method: this.paymentMethods.find(m => m.value === this.checkoutForm.value.metodoPago)?.label,
         cart_items: cartDetails,
         total: `$${this.total.toLocaleString('es-CL')}`,
-        order_date: new Date().toLocaleDateString('es-CL')
+        order_date: new Date().toLocaleDateString('es-CL'),
+        reply_to: this.checkoutForm.value.email  // Agregar esta línea
       };
 
-      // Enviar email usando EmailJS
       const response = await emailjs.send(
         "service_zht6lt2",
         "template_y3gl94i",
@@ -102,7 +101,7 @@ export class CheckoutPage implements OnInit {
       await loading.dismiss();
       await this.presentToast('Error al procesar la orden. Por favor intente nuevamente', 'danger');
     }
-  }
+}
 
   async presentToast(message: string, color: string = 'success') {
     const toast = await this.toastController.create({

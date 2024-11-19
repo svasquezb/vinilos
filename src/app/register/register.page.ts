@@ -14,6 +14,7 @@ export class RegisterPage implements OnInit {
   confirmPassword: string = '';
   firstName: string = '';
   lastName: string = '';
+  showPasswordRequirements: boolean = false;
 
   constructor(
     private navCtrl: NavController,
@@ -21,6 +22,36 @@ export class RegisterPage implements OnInit {
     private loadingController: LoadingController,
     private databaseService: DatabaseService
   ) {}
+
+  // Propiedades para validación de contraseña
+  get hasUpperCase(): boolean {
+    return /[A-Z]/.test(this.password);
+  }
+
+  get hasLowerCase(): boolean {
+    return /[a-z]/.test(this.password);
+  }
+
+  get hasNumber(): boolean {
+    return /\d/.test(this.password);
+  }
+
+  get hasSpecialChar(): boolean {
+    return /[!@#$%^&*(),.?":{}|<>]/.test(this.password);
+  }
+
+  get isLongEnough(): boolean {
+    return this.password.length >= 6;
+  }
+
+  // Método para validar la contraseña completa
+  isValidPassword(password: string): boolean {
+    return this.hasUpperCase && 
+           this.hasLowerCase && 
+           this.hasNumber && 
+           this.hasSpecialChar && 
+           this.isLongEnough;
+  }
 
   async ngOnInit() {
     // Verificar el estado de la base de datos al iniciar
@@ -46,7 +77,8 @@ export class RegisterPage implements OnInit {
     }
 
     const loading = await this.loadingController.create({
-      message: 'Registrando usuario...'
+      message: 'Registrando usuario...',
+      spinner: 'crescent'
     });
 
     try {
@@ -64,7 +96,7 @@ export class RegisterPage implements OnInit {
       console.log('Resultado del registro:', result);
 
       if (result.success) {
-        await this.presentToast('Registro exitoso', 'success');
+        await this.presentToast('Registro exitoso. Por favor, inicie sesión', 'success');
         this.navCtrl.navigateRoot('/login');
       } else {
         await this.presentToast(result.error || 'Error en el registro', 'danger');
@@ -91,17 +123,43 @@ export class RegisterPage implements OnInit {
       return false;
     }
 
+    if (!this.isValidPassword(this.password)) {
+      this.presentToast(
+        'La contraseña debe tener al menos 6 caracteres, una mayúscula, una minúscula, un número y un carácter especial',
+        'warning'
+      );
+      return false;
+    }
+
     if (this.password !== this.confirmPassword) {
       this.presentToast('Las contraseñas no coinciden', 'danger');
       return false;
     }
 
-    if (this.password.length < 6) {
-      this.presentToast('La contraseña debe tener al menos 6 caracteres', 'warning');
+    // Validar longitud del nombre y apellido
+    if (this.firstName.length < 2 || this.lastName.length < 2) {
+      this.presentToast('El nombre y apellido deben tener al menos 2 caracteres', 'warning');
+      return false;
+    }
+
+    // Validar que nombre y apellido no contengan números o caracteres especiales
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(this.firstName) || 
+        !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(this.lastName)) {
+      this.presentToast('El nombre y apellido solo pueden contener letras', 'warning');
       return false;
     }
 
     return true;
+  }
+
+  onPasswordFocus() {
+    this.showPasswordRequirements = true;
+  }
+
+  onPasswordBlur() {
+    setTimeout(() => {
+      this.showPasswordRequirements = false;
+    }, 200);
   }
 
   validateEmail(email: string): boolean {
@@ -109,13 +167,18 @@ export class RegisterPage implements OnInit {
     return emailRegex.test(email);
   }
 
-  async presentToast(message: string, color: string) {
+  async presentToast(message: string, color: string = 'success') {
     const toast = await this.toastController.create({
       message: message,
       duration: 2000,
       position: 'bottom',
-      color: color
+      color: color,
+      cssClass: 'custom-toast'
     });
     await toast.present();
   }
-} 
+
+  goToLogin() {
+    this.navCtrl.navigateRoot('/login');
+  }
+}

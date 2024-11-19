@@ -766,6 +766,24 @@ isAuthenticated(): boolean {
     );
   }
 
+  getUserByEmail(email: string): Observable<any> {
+    return this.executeSQL(
+      'SELECT * FROM Users WHERE email = ? LIMIT 1',
+      [email]
+    ).pipe(
+      map(result => {
+        if (result.values && result.values.length > 0) {
+          return result.values[0];
+        }
+        return null;
+      }),
+      catchError(error => {
+        console.error('Error getting user by email:', error);
+        return of(null);
+      })
+    );
+  }
+
   getUserById(userId: number): Observable<any> {
     return this.executeSQL(
       'SELECT * FROM Users WHERE id = ?',
@@ -843,42 +861,67 @@ isAuthenticated(): boolean {
   
   updateUserPassword(userId: number, currentPassword: string, newPassword: string): Observable<any> {
     console.log('Actualizando contraseña para usuario:', userId);
-    //Verificar contraseña
-    const verifyQuery = ` 
-      SELECT id FROM Users 
-      WHERE id = ? AND password = ?
-    `;
+    
+    // Si estamos en modo recuperación, no verificamos la contraseña actual
+    const isRecoveryMode = currentPassword === 'temp123';
+    
+    if (isRecoveryMode) {
+      // Actualizar directamente sin verificar la contraseña actual
+      const updateQuery = `
+        UPDATE Users 
+        SET password = ?
+        WHERE id = ?
+      `;
   
-    return this.executeSQL(verifyQuery, [userId, currentPassword]).pipe(
-      switchMap(result => {
-        if (!result.values?.length) {
-          return of({ 
-            success: false, 
-            error: 'La contraseña actual es incorrecta' 
+      return this.executeSQL(updateQuery, [newPassword, userId]).pipe(
+        map(updateResult => ({
+          success: true
+        })),
+        catchError(error => {
+          console.error('Error updating password:', error);
+          return of({
+            success: false,
+            error: 'Error al actualizar la contraseña'
           });
-        }
+        })
+      );
+    } else {
+      // Proceso normal de cambio de contraseña
+      const verifyQuery = `
+        SELECT id FROM Users 
+        WHERE id = ? AND password = ?
+      `;
   
-        // Si la contraseña actual es correcta, actualizamos a la nueva
-        const updateQuery = `
-          UPDATE Users 
-          SET password = ?
-          WHERE id = ?
-        `;
-  
-        return this.executeSQL(updateQuery, [newPassword, userId]).pipe(
-          map(updateResult => ({
-            success: true
-          })),
-          catchError(error => {
-            console.error('Error updating password:', error);
-            return of({
-              success: false,
-              error: 'Error al actualizar la contraseña'
+      return this.executeSQL(verifyQuery, [userId, currentPassword]).pipe(
+        switchMap(result => {
+          if (!result.values?.length) {
+            return of({ 
+              success: false, 
+              error: 'La contraseña actual es incorrecta' 
             });
-          })
-        );
-      })
-    );
+          }
+  
+          const updateQuery = `
+            UPDATE Users 
+            SET password = ?
+            WHERE id = ?
+          `;
+  
+          return this.executeSQL(updateQuery, [newPassword, userId]).pipe(
+            map(updateResult => ({
+              success: true
+            })),
+            catchError(error => {
+              console.error('Error updating password:', error);
+              return of({
+                success: false,
+                error: 'Error al actualizar la contraseña'
+              });
+            })
+          );
+        })
+      );
+    }
   }
 
   updateUserPhoto(userId: number, photoData: string): Observable<any> {
@@ -933,6 +976,8 @@ isAuthenticated(): boolean {
       })
     );
   }
+
+  
 
   updateVinyl(vinilo: Vinyl): Observable<any> {
     if (!vinilo.id) {
