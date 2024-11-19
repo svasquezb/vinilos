@@ -84,6 +84,7 @@ export class HomePage implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.bannerInterval) {
       clearInterval(this.bannerInterval);
+      this.bannerInterval = undefined;
     }
   }
 
