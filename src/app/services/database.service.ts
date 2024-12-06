@@ -562,7 +562,6 @@ loginUser(email: string, password: string): Observable<any> {
     })
   );
 }
-
 async createAdminIfNotExists(): Promise<void> {
   const query = `
     INSERT OR REPLACE INTO Users (
@@ -1082,8 +1081,8 @@ isAuthenticated(): boolean {
     ]);
   }
   
-  deleteVinyl(id: number): Observable<any> {
-    const query = 'DELETE FROM Vinyls WHERE id = ?';
+  enableVinyl(id: number): Observable<any> {
+    const query = 'UPDATE Vinyls SET IsAvailable = 1 WHERE id = ?';
     return this.executeSQL(query, [id]);
   }
 
@@ -1111,6 +1110,61 @@ isAuthenticated(): boolean {
       console.error('Error en verificación de tablas:', error);
       return false;
     }
+  }
+
+  getAvailableVinyls(): Observable<Vinyl[]> {
+    const query = 'SELECT * FROM Vinyls WHERE IsAvailable = 1';
+    return this.executeSQL(query).pipe(
+      map((results: SQLiteResponse) => {
+        // Verificar si results.values existe y tiene longitud
+        if (!results.values || results.values.length === 0) {
+          return [];
+        }
+        
+        // Convertir resultados directamente
+        return results.values.map((row: VinylDBRecord) => ({
+          id: row.id,
+          titulo: row.titulo,
+          artista: row.artista,
+          imagen: row.imagen,
+          descripcion: JSON.parse(row.descripcion),
+          tracklist: JSON.parse(row.tracklist),
+          stock: row.stock,
+          precio: row.precio,
+          IsAvailable: row.IsAvailable === 1
+        }));
+      })
+    );
+  }
+  
+  getAllVinyls(): Observable<Vinyl[]> {
+    const query = 'SELECT * FROM Vinyls';
+    return this.executeSQL(query).pipe(
+      map((results: SQLiteResponse) => {
+        // Verificar si results.values existe y tiene longitud
+        if (!results.values || results.values.length === 0) {
+          return [];
+        }
+        
+        // Convertir resultados directamente
+        return results.values.map((row: VinylDBRecord) => ({
+          id: row.id,
+          titulo: row.titulo,
+          artista: row.artista,
+          imagen: row.imagen,
+          descripcion: JSON.parse(row.descripcion),
+          tracklist: JSON.parse(row.tracklist),
+          stock: row.stock,
+          precio: row.precio,
+          IsAvailable: row.IsAvailable === 1
+        }));
+      })
+    );
+  }
+
+  disableVinyl(id: number): Observable<any> {
+    const query = 'UPDATE Vinyls SET IsAvailable = 0 WHERE id = ?';
+    return this.executeSQL(query, [id]);
   }
 
   private insertSeedData(): Observable<boolean> {

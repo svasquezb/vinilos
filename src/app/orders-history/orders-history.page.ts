@@ -6,11 +6,20 @@ import { NavController } from '@ionic/angular';
 import { ToastController } from '@ionic/angular';
 
 // Define a more specific interface for order items
-interface OrderItem {
-  id?: number;
+interface VinylItem {
+  id: number;
   titulo: string;
   artista: string;
+  imagen: string;
+  descripcion: any;
+  tracklist: any;
+  stock: number;
   precio: number;
+  IsAvailable: boolean;
+}
+
+interface OrderItem {
+  vinyl: VinylItem;
   quantity: number;
 }
 
@@ -60,8 +69,14 @@ export class OrdersHistoryPage implements OnInit {
           ...order,
           items: this.safeParseItems(order.items),
           formattedCreatedAt: order.createdAt 
-            ? new Date(order.createdAt).toLocaleString('es-CL') 
-            : 'Fecha no disponible' // Valor predeterminado en caso de que no haya fecha
+            ? new Date(order.createdAt).toLocaleString('es-CL', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : 'Fecha no disponible'
         }));
         this.loading = false;
       },
@@ -73,16 +88,23 @@ export class OrdersHistoryPage implements OnInit {
     });
   }
   
-  
   private safeParseItems(items: any): OrderItem[] {
     try {
-      if (typeof items === 'string') return JSON.parse(items || '[]');
+      if (typeof items === 'string') {
+        const parsedItems = JSON.parse(items || '[]');
+        // Asegurarnos de que la estructura coincida con CartVinyl
+        return Array.isArray(parsedItems) ? parsedItems : [];
+      }
       if (Array.isArray(items)) return items;
       return [];
     } catch (error) {
       console.error('Error parsing items:', error);
       return [];
     }
+  }
+
+  getOrderTotal(items: OrderItem[]): number {
+    return items.reduce((total, item) => total + (item.vinyl.precio * item.quantity), 0);
   }
 
   formatPrice(price: number): string {
@@ -94,10 +116,19 @@ export class OrdersHistoryPage implements OnInit {
     });
   }
 
+  getPaymentMethodLabel(method: string): string {
+    const methods: { [key: string]: string } = {
+      'debito': 'Tarjeta de Débito',
+      'credito': 'Tarjeta de Crédito',
+      'efectivo': 'Efectivo'
+    };
+    return methods[method] || method;
+  }
+
   ionViewWillEnter() {
     const currentUser = this.databaseService.getCurrentUser();
     if (currentUser?.id) {
-      this.loadOrders(currentUser.id); // Recargar órdenes
+      this.loadOrders(currentUser.id);
     } else {
       this.navCtrl.navigateRoot('/login');
     }

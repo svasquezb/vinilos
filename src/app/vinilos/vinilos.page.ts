@@ -44,9 +44,10 @@ export class VinilosPage implements OnInit {
       spinner: 'circular'
     });
     await loading.present();
-
+  
     try {
-      const vinilosFromDB = await firstValueFrom(this.databaseService.getVinyls());
+      // Cambiar esta línea para obtener solo vinilos disponibles
+      const vinilosFromDB = await firstValueFrom(this.databaseService.getAvailableVinyls());
       
       if (!vinilosFromDB || vinilosFromDB.length === 0) {
         console.log('No se encontraron vinilos');
@@ -55,7 +56,7 @@ export class VinilosPage implements OnInit {
         this.vinilosFiltrados = [];
         return;
       }
-
+  
       this.vinilos = vinilosFromDB;
       this.vinilosFiltrados = this.vinilos;
       console.log(`Se cargaron ${this.vinilos.length} vinilos`);

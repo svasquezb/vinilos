@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LoadingController, ToastController, NavController } from '@ionic/angular';
-import { CartService } from '../services/cart.service';
+import { CartService, CartVinyl } from '../services/cart.service';
 import { DatabaseService } from '../services/database.service';
 import { OrderService } from '../services/order.service';
 import { Order } from '../services/order.service';
@@ -14,7 +14,7 @@ import emailjs from '@emailjs/browser';
 })
 export class CheckoutPage implements OnInit {
   checkoutForm: FormGroup;
-  cartItems: any[] = [];
+  cartItems: CartVinyl[] = [];
   total: number = 0;
   paymentMethods = [
     { value: 'debito', label: 'Tarjeta de Débito' },
@@ -84,14 +84,19 @@ export class CheckoutPage implements OnInit {
     }
 
     // Validar stock antes de continuar
-    for (const item of this.cartItems) {
-      const vinyl = await this.databaseService.executeQuerySQL(
+    for (const cartItem of this.cartItems) {
+      const result = await this.databaseService.executeQuerySQL(
         'SELECT stock FROM Vinyls WHERE id = ?',
-        [item.id]
+        [cartItem.vinyl.id]
       ).toPromise();
       
-      if (!vinyl?.values?.[0] || vinyl.values[0].stock < item.quantity) {
-        await this.presentToast(`Stock insuficiente para ${item.titulo}`, 'warning');
+      const currentStock = result?.values?.[0]?.stock ?? 0;
+      
+      if (currentStock < cartItem.quantity) {
+        await this.presentToast(
+          `Stock insuficiente para ${cartItem.vinyl.titulo}. Stock disponible: ${currentStock}`, 
+          'warning'
+        );
         return;
       }
     }
@@ -101,7 +106,7 @@ export class CheckoutPage implements OnInit {
 
     try {
       const cartDetails = this.cartItems.map(item => 
-        `Título: ${item.titulo}\nArtista: ${item.artista}\nCantidad: ${item.quantity}\nPrecio unitario: $${item.precio.toLocaleString('es-CL')}\nSubtotal: $${(item.precio * item.quantity).toLocaleString('es-CL')}`
+        `Título: ${item.vinyl.titulo}\nArtista: ${item.vinyl.artista}\nCantidad: ${item.quantity}\nPrecio unitario: $${item.vinyl.precio.toLocaleString('es-CL')}\nSubtotal: $${(item.vinyl.precio * item.quantity).toLocaleString('es-CL')}`
       ).join('\n\n');
 
       const formValue = this.checkoutForm.getRawValue();
@@ -125,10 +130,11 @@ export class CheckoutPage implements OnInit {
       );
 
       if (response.status === 200) {
+        // Actualizar el stock después de una orden exitosa
         for (const item of this.cartItems) {
           await this.databaseService.executeQuerySQL(
             'UPDATE Vinyls SET stock = stock - ? WHERE id = ?',
-            [item.quantity, item.id]
+            [item.quantity, item.vinyl.id]
           ).toPromise();
         }
 

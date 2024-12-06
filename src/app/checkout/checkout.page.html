@@ -75,14 +75,14 @@
       <ion-card-content>
         <ion-list>
           <ion-item *ngFor="let item of cartItems" lines="full">
-            <ion-thumbnail slot="start" *ngIf="item.imagen">
-              <img [src]="item.imagen" [alt]="item.titulo">
+            <ion-thumbnail slot="start" *ngIf="item.vinyl.imagen">
+              <img [src]="item.vinyl.imagen" [alt]="item.vinyl.titulo">
             </ion-thumbnail>
             <ion-label>
-              <h2>{{ item.titulo }}</h2>
-              <p>{{ item.artista }}</p>
+              <h2>{{ item.vinyl.titulo }}</h2>
+              <p>{{ item.vinyl.artista }}</p>
               <p>Cantidad: {{ item.quantity }}</p>
-              <p class="precio">{{ formatPrice(item.precio * item.quantity) }}</p>
+              <p class="precio">{{ formatPrice(item.vinyl.precio * item.quantity) }}</p>
             </ion-label>
           </ion-item>
         </ion-list>

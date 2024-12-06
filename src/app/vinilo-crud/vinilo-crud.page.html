@@ -4,10 +4,17 @@
       <ion-back-button defaultHref="/home"></ion-back-button>
     </ion-buttons>
     <ion-title>Gestión de Vinilos</ion-title>
+    <!-- Botón para cambiar vista de admin -->
+    <ion-buttons slot="end">
+      <ion-button (click)="toggleAdminView()">
+        <ion-icon name="settings" *ngIf="!mostrarTodosVinilos"></ion-icon>
+        <ion-icon name="eye" *ngIf="mostrarTodosVinilos"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
- </ion-header>
+</ion-header>
  
- <ion-content class="ion-padding">
+<ion-content class="ion-padding">
   <!-- Loading spinner -->
   <div class="loading-container" *ngIf="loading">
     <ion-spinner name="crescent"></ion-spinner>
@@ -126,13 +133,14 @@
       <ion-card-title>
         <ion-icon name="list"></ion-icon>
         Vinilos Existentes
+        <ion-badge *ngIf="mostrarTodosVinilos" color="warning" class="ion-margin-start">Vista Admin</ion-badge>
       </ion-card-title>
     </ion-card-header>
  
     <ion-card-content>
       <ion-list>
         <ion-item-sliding *ngFor="let vinilo of vinilos">
-          <ion-item>
+          <ion-item [class.disabled]="!vinilo.IsAvailable">
             <ion-thumbnail slot="start">
               <img [src]="vinilo.imagen" alt="Portada del vinilo">
             </ion-thumbnail>
@@ -140,15 +148,21 @@
               <h2>{{ vinilo.titulo }}</h2>
               <h3>{{ vinilo.artista }}</h3>
               <p>Stock: {{ vinilo.stock }} | Precio: {{ vinilo.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+              <p *ngIf="mostrarTodosVinilos">
+                <ion-badge *ngIf="!vinilo.IsAvailable" color="danger">Deshabilitado</ion-badge>
+              </p>
             </ion-label>
           </ion-item>
  
-          <ion-item-options side="end">
+          <ion-item-options *ngIf="mostrarTodosVinilos || vinilo.IsAvailable" side="end">
             <ion-item-option color="primary" (click)="editarVinilo(vinilo)">
               <ion-icon name="create" slot="icon-only"></ion-icon>
             </ion-item-option>
-            <ion-item-option color="danger" (click)="eliminarVinilo(vinilo)">
-              <ion-icon name="trash" slot="icon-only"></ion-icon>
+            <ion-item-option *ngIf="vinilo.IsAvailable" color="danger" (click)="eliminarVinilo(vinilo)">
+              <ion-icon name="remove-circle" slot="icon-only"></ion-icon>
+            </ion-item-option>
+            <ion-item-option *ngIf="!vinilo.IsAvailable" color="success" (click)="habilitarVinilo(vinilo)">
+              <ion-icon name="add-circle" slot="icon-only"></ion-icon>
             </ion-item-option>
           </ion-item-options>
         </ion-item-sliding>
@@ -161,4 +175,4 @@
       </ion-list>
     </ion-card-content>
   </ion-card>
- </ion-content>
+</ion-content>
