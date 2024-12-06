@@ -6,17 +6,17 @@
 
 <ion-content [fullscreen]="true" class="ion-padding">
   <ion-list *ngIf="cart.length > 0">
-    <ion-item *ngFor="let vinyl of cart">
+    <ion-item *ngFor="let item of cart">
       <ion-thumbnail slot="start">
-        <img [src]="vinyl.imagen" />
+        <img [src]="item.vinyl.imagen" />
       </ion-thumbnail>
       <ion-label>
-        <h2>{{ vinyl.titulo }}</h2>
-        <p>{{ vinyl.artista }}</p>
-        <p>Cantidad: {{ vinyl.quantity }}</p>
-        <p>Precio: {{ vinyl.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
+        <h2>{{ item.vinyl.titulo }}</h2>
+        <p>{{ item.vinyl.artista }}</p>
+        <p>Cantidad: {{ item.quantity }}</p>
+        <p>Precio: {{ item.vinyl.precio | currency:'CLP':'symbol-narrow':'1.0-0' }}</p>
       </ion-label>
-      <ion-button fill="outline" slot="end" (click)="removeItem(vinyl.id)">
+      <ion-button fill="outline" slot="end" (click)="removeItem(item.vinyl.id)">
         <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-item>

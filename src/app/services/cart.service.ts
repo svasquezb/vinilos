@@ -1,19 +1,31 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { Vinyl as BaseVinyl } from '../models/vinilos.model';
+import { BehaviorSubject, Observable, of, from } from 'rxjs';
+import { take, switchMap, map, catchError } from 'rxjs/operators';
 import { DatabaseService } from './database.service';
 import { ToastController, NavController } from '@ionic/angular';
 
-export interface CartVinyl extends BaseVinyl {
+export interface CartVinyl {
+  vinyl: {
+    id: number;
+    titulo: string;
+    artista: string;
+    imagen: string;
+    descripcion: any;
+    tracklist: any;
+    stock: number;
+    precio: number;
+    IsAvailable: boolean;
+  };
   quantity: number;
 }
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class CartService {
   private currentUserId: number | null = null;
-  private cart: CartVinyl[] = [];
+  private cart: CartVinyl[] = []; // Cambia any[] por CartVinyl[]
   private cartSubject = new BehaviorSubject<CartVinyl[]>([]);
   private isAuthenticated = false;
 
@@ -24,42 +36,43 @@ export class CartService {
   ) {
     this.databaseService.getActiveSession().subscribe(user => {
       if (user) {
-        this.currentUserId = user.id;
-        this.isAuthenticated = true;
-        this.loadUserCart();
+        if (this.currentUserId !== user.id) {
+          this.currentUserId = user.id;
+          this.isAuthenticated = true;
+          this.loadUserCart();
+        }
       } else {
         this.currentUserId = null;
         this.isAuthenticated = false;
-        this.clearCart();
+        this.cart = [];
+        this.cartSubject.next([]);
       }
     });
   }
 
-  private async loadUserCart() {
+  private loadUserCart() {
     if (!this.currentUserId) return;
-    try {
-      const cartItems = await this.databaseService.getCartFromDatabase(this.currentUserId).toPromise();
-      this.cart = cartItems || [];
-      this.cartSubject.next(this.cart);
-    } catch (error) {
-      console.error('Error loading cart:', error);
-    }
-  }
-
-  private async saveCart() {
-    if (!this.currentUserId) return;
-    try {
-      await this.databaseService.saveCartToDatabase(this.currentUserId, this.cart).toPromise();
-    } catch (error) {
-      console.error('Error saving cart:', error);
-    }
+  
+    this.databaseService.getCartFromDatabase(this.currentUserId)
+      .pipe(take(1))
+      .subscribe({
+        next: (cartItems) => {
+          this.cart = cartItems;
+          this.cartSubject.next(this.cart);
+        },
+        error: (error) => {
+          console.error('Error al cargar el carrito:', error);
+          this.cart = [];
+          this.cartSubject.next([]);
+        }
+      });
   }
 
   getCart(): Observable<CartVinyl[]> {
     return this.cartSubject.asObservable();
   }
 
-  async addToCart(vinyl: BaseVinyl): Promise<boolean> {
+  async addToCart(vinyl: any): Promise<boolean> {
     if (!this.isAuthenticated) {
       const toast = await this.toastController.create({
         message: 'Debe iniciar sesión para agregar productos al carrito',
@@ -70,8 +83,7 @@ export class CartService {
       await toast.present();
       return false;
     }
-  
-    // Verificar stock disponible
+
     if (vinyl.stock <= 0) {
       const toast = await this.toastController.create({
         message: 'Producto sin stock disponible',
@@ -82,13 +94,12 @@ export class CartService {
       await toast.present();
       return false;
     }
-  
+
     try {
-      const existingVinyl = this.cart.find(item => item.id === vinyl.id);
+      const existingItemIndex = this.cart.findIndex(item => item.vinyl.id === vinyl.id);
       
-      // Verificar que la cantidad en carrito no exceda el stock
-      if (existingVinyl) {
-        if (existingVinyl.quantity >= vinyl.stock) {
+      if (existingItemIndex !== -1) {
+        if (this.cart[existingItemIndex].quantity >= vinyl.stock) {
           const toast = await this.toastController.create({
             message: 'Stock insuficiente',
             duration: 2000,
@@ -98,14 +109,16 @@ export class CartService {
           await toast.present();
           return false;
         }
-        existingVinyl.quantity += 1;
+        this.cart[existingItemIndex].quantity += 1;
       } else {
-        const cartItem: CartVinyl = { ...vinyl, quantity: 1 };
-        this.cart.push(cartItem);
+        this.cart.push({ 
+          vinyl: vinyl, 
+          quantity: 1 
+        });
       }
-  
+
+      await this.saveCart().toPromise();
       this.cartSubject.next(this.cart);
-      await this.saveCart();
       
       const toast = await this.toastController.create({
         message: 'Producto agregado al carrito',
@@ -128,34 +141,33 @@ export class CartService {
     }
   }
 
-  private async navigateToLogin() {
-    try {
-      await this.navCtrl.navigateForward('/login', {
-        animated: true,
-        animationDirection: 'forward'
-      });
-    } catch (error) {
-      console.error('Error navigating to login:', error);
-    }
+  saveCart(): Observable<boolean> {
+    if (!this.currentUserId) return of(false);
+    return this.databaseService.saveCartToDatabase(this.currentUserId, this.cart);
   }
 
   async removeFromCart(vinylId: number) {
     if (!this.currentUserId) return;
-    this.cart = this.cart.filter(item => item.id !== vinylId);
+    
+    this.cart = this.cart.filter(item => item.vinyl.id !== vinylId);
+    
+    await this.saveCart().toPromise();
+    
     this.cartSubject.next(this.cart);
-    await this.saveCart();
   }
 
   async clearCart() {
+    if (!this.currentUserId) return;
+    
     this.cart = [];
+    
+    await this.saveCart().toPromise();
+    
     this.cartSubject.next(this.cart);
-    if (this.currentUserId) {
-      await this.saveCart();
-    }
   }
 
   getTotal(): number {
-    return this.cart.reduce((total, item) => total + (item.precio * item.quantity), 0);
+    return this.cart.reduce((total, item) => total + (item.vinyl.precio * item.quantity), 0);
   }
 
   getCartItemCount(): number {

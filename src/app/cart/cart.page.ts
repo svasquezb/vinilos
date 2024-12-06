@@ -8,7 +8,7 @@ import { NavController, ToastController } from '@ionic/angular';
   styleUrls: ['./cart.page.scss'],
 })
 export class CartPage implements OnInit {
-  cart: (CartVinyl & { id: number })[] = [];
+  cart: CartVinyl[] = [];
   total = 0;
 
   constructor(
@@ -19,7 +19,7 @@ export class CartPage implements OnInit {
 
   ngOnInit() {
     this.cartService.getCart().subscribe((cart) => {
-      this.cart = cart.filter(item => item.id !== undefined) as (CartVinyl & { id: number })[];
+      this.cart = cart;
       this.total = this.cartService.getTotal();
     });
   }
@@ -33,12 +33,8 @@ export class CartPage implements OnInit {
     });
   }
 
-  removeItem(vinylId: number | undefined) {
-    if (vinylId !== undefined) {
-      this.cartService.removeFromCart(vinylId);
-    } else {
-      console.error('Attempted to remove item with undefined id');
-    }
+  removeItem(vinylId: number) {
+    this.cartService.removeFromCart(vinylId);
   }
 
   clearCart() {
