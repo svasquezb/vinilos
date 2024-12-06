@@ -167,6 +167,7 @@ export class ProfileEditPage implements OnInit {
             if (this.validatePasswordData(data)) {
               await this.updatePassword(data);
             }
+            return false; // Prevent alert from closing automatically
           }
         }
       ]
@@ -204,18 +205,26 @@ export class ProfileEditPage implements OnInit {
   }
 
   private validatePasswordData(data: PasswordChange): boolean {
+    // Verificar que todos los campos estén llenos
     if (!data.currentPassword || !data.newPassword || !data.confirmPassword) {
       this.presentToast('Todos los campos son requeridos', 'warning');
       return false;
     }
 
+    // Verificar que las nuevas contraseñas coincidan
     if (data.newPassword !== data.confirmPassword) {
       this.presentToast('Las contraseñas no coinciden', 'warning');
       return false;
     }
 
-    if (data.newPassword.length < 6) {
-      this.presentToast('La nueva contraseña debe tener al menos 6 caracteres', 'warning');
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{6,}$/;
+    
+    if (!passwordRegex.test(data.newPassword)) {
+      this.presentToast('La nueva contraseña debe cumplir con los siguientes requisitos:' +
+        '\n- Al menos 6 caracteres' +
+        '\n- Una letra mayúscula' +
+        '\n- Un número' +
+        '\n- Un carácter especial', 'warning');
       return false;
     }
 
@@ -240,9 +249,30 @@ export class ProfileEditPage implements OnInit {
     return true;
   }
 
+  private convertFileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const photoData = e.target.result;
+        resolve(photoData);
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   async onPhotoSelected(event: any) {
     const file = event.target.files[0];
     if (!file || !this.currentUser?.id) return;
+  
+    // Validar tipo de archivo
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      await this.presentToast('Formato de imagen no válido. Use JPEG, PNG o GIF', 'warning');
+      return;
+    }
   
     if (file.size > 5000000) {
       await this.presentToast('La imagen es demasiado grande. Máximo 5MB', 'warning');
@@ -253,26 +283,18 @@ export class ProfileEditPage implements OnInit {
     const loading = await this.presentLoading('Cargando imagen...');
   
     try {
-      const reader = new FileReader();
-      reader.onload = async (e: any) => {
-        if (this.currentUser?.id) {
-          const photoData = e.target.result;
-          console.log('Subiendo foto para usuario:', this.currentUser.id);
-          
-          const result = await firstValueFrom(
-            this.databaseService.updateUserPhoto(this.currentUser.id, photoData)
-          );
-  
-          if (result.success) {
-            this.currentUser.photo = photoData;
-            await this.presentToast('Foto actualizada con éxito', 'success');
-          } else {
-            throw new Error(result.error || 'Error al actualizar la foto');
-          }
-        }
-      };
+      const photoData = await this.convertFileToBase64(file);
       
-      reader.readAsDataURL(file);
+      const result = await firstValueFrom(
+        this.databaseService.updateUserPhoto(this.currentUser.id, photoData)
+      );
+  
+      if (result.success) {
+        this.currentUser.photo = photoData;
+        await this.presentToast('Foto actualizada con éxito', 'success');
+      } else {
+        throw new Error(result.error || 'Error al actualizar la foto');
+      }
     } catch (error) {
       console.error('Error updating photo:', error);
       await this.presentToast('Error al procesar la imagen', 'danger');

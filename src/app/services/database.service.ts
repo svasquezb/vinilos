@@ -120,34 +120,29 @@ export class DatabaseService {
 
   private async ensureDatabaseStructure(): Promise<void> {
     try {
-      // Crear tablas
+      // Crear tablas principales si no existen
       await this.database.execute(this.tableUsers);
       await this.database.execute(this.tableVinyls);
       await this.database.execute(this.tableOrders);
-      await this.database.execute(this.tableCart);
-      
-      // Verificar si hay datos
-      const countResult = await this.database.query(`
-        SELECT 
-          (SELECT COUNT(*) FROM Users) as userCount,
-          (SELECT COUNT(*) FROM Vinyls) as vinylCount
-      `);
-      
-      const counts = countResult.values?.[0];
-      console.log('Conteo de registros:', counts);
   
-      // Si no hay datos, insertar datos de ejemplo
-      if (!counts || counts.vinylCount === 0) {
-        console.log('No hay datos, insertando datos iniciales...');
-        await this.insertSeedData().toPromise();
-      }
+      // Ejecutar migraciones específicas de columnas o ajustes necesarios
+      await this.runMigrations();
   
-      // Asegurar que existe el admin
-      await this.createAdminIfNotExists();
-  
-      console.log('Estructura de base de datos verificada y completa');
+      console.log("Database structure ensured.");
     } catch (error) {
-      console.error('Error ensuring database structure:', error);
+      console.error("Error ensuring database structure:", error);
+      throw error;
+    }
+  }
+  
+  private async runMigrations(): Promise<void> {
+    try {
+      // Migración para agregar la columna 'paymentMethod' a la tabla 'Orders'
+      await this.migrateOrdersTable();
+  
+      console.log("All migrations applied successfully.");
+    } catch (error) {
+      console.error("Error during migrations:", error);
       throw error;
     }
   }
@@ -287,16 +282,17 @@ export class DatabaseService {
   );
 `;
 
-  private readonly tableOrders: string = `
-    CREATE TABLE IF NOT EXISTS Orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      userId INTEGER,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      status TEXT NOT NULL,
-      totalAmount REAL NOT NULL,
-      orderDetails TEXT NOT NULL,
-      FOREIGN KEY (userId) REFERENCES Users(id)
-    );`;
+private readonly tableOrders: string = `
+CREATE TABLE IF NOT EXISTS Orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER,
+  totalAmount REAL NOT NULL,
+  orderDetails TEXT NOT NULL,
+  paymentMethod TEXT, -- Nueva columna para el método de pago
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  status TEXT NOT NULL,
+  FOREIGN KEY (userId) REFERENCES Users(id)
+); `;
 
     private readonly tableCart = `
   CREATE TABLE IF NOT EXISTS Carts (
@@ -728,6 +724,42 @@ isAuthenticated(): boolean {
       throw error;
     }
   }
+
+  private async migrateOrdersTable(): Promise<void> {
+    try {
+      if (!this.database) {
+        console.error("La conexión a la base de datos no está lista.");
+        return;
+      }
+  
+      // Verificar si la tabla Orders existe
+      const tablesResult = await this.database.query(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='Orders';
+      `);
+  
+      if (!tablesResult.values || tablesResult.values.length === 0) {
+        console.error("La tabla 'Orders' no existe. Asegúrate de que esté creada antes de migrar.");
+        return;
+      }
+  
+      // Verificar si la columna 'paymentMethod' ya existe
+      const columnsResult = await this.database.query(`PRAGMA table_info(Orders);`);
+      const columns = columnsResult.values || [];
+      const hasPaymentMethod = columns.some((col: any) => col.name === 'paymentMethod');
+  
+      if (!hasPaymentMethod) {
+        console.log("Migrating 'Orders' table to add 'paymentMethod' column...");
+        await this.database.execute(`ALTER TABLE Orders ADD COLUMN paymentMethod TEXT;`);
+        console.log("'Orders' table migrated successfully.");
+      } else {
+        console.log("'Orders' table already includes 'paymentMethod' column.");
+      }
+    } catch (error) {
+      console.error("Error migrating 'Orders' table:", error);
+      throw error;
+    }
+  }
+  
   
   private parseJsonSafely(value: string | any[]): string[] {
     if (Array.isArray(value)) return value;

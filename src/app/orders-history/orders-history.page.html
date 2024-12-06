@@ -1,0 +1,40 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button></ion-back-button>
+    </ion-buttons>
+    <ion-title>Historial de Compra</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-spinner *ngIf="loading" class="centered-spinner"></ion-spinner>
+
+  <div *ngIf="!loading && orders.length === 0" class="no-orders">
+    <ion-text>No has realizado compras aún</ion-text>
+  </div>
+
+  <ion-list *ngIf="!loading && orders.length > 0">
+    <ion-card *ngFor="let order of orders">
+      <ion-card-header>
+        <ion-card-title>Orden #{{ order.id }}</ion-card-title>
+        <ion-card-subtitle>{{ order.createdAt }}</ion-card-subtitle>
+      </ion-card-header>
+
+      <ion-card-content>
+        <div class="order-details">
+          <h3>Detalles de la Compra</h3>
+          <div *ngFor="let item of order.items" class="order-item">
+            <span>{{ item.titulo }} ({{ item.quantity }} x {{ formatPrice(item.precio) }})</span>
+          </div>
+          <div class="order-total">
+            <strong>Total: {{ formatPrice(order.total) }}</strong>
+          </div>
+          <div class="order-payment-method">
+            Método de Pago: {{ order.paymentMethod }}
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </ion-list>
+</ion-content>

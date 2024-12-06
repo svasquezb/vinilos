@@ -1,0 +1,141 @@
+$primary-color: #8B4513;    // Saddle Brown
+$secondary-color: #DEB887;  // Burlywood
+$accent-color: #CD853F;     // Peru
+$background-color: #FFF8DC; // Cornsilk
+$card-background: #FAEBD7;  // Antique White
+$text-color: #3E2723;       // Dark Brown
+$light-text-color: #FFF8DC; // Cornsilk
+$error-color: #C62828;      // Rojo oscuro vintage
+
+@mixin vintage-border {
+  border: 2px solid $primary-color;
+  box-shadow: 3px 3px 0 rgba($primary-color, 0.5);
+}
+
+ion-content {
+  --background: #{$background-color};
+  font-family: 'Georgia', serif;
+}
+
+
+ion-header {
+  ion-toolbar {
+    --background: #{$primary-color};
+    
+    ion-title {
+      color: $light-text-color;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6em;
+      text-align: center;
+    }
+
+    ion-back-button {
+      --color: #{$light-text-color};
+    }
+  }
+}
+
+// Centered spinner
+.centered-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: $primary-color;
+}
+
+// No orders message
+.no-orders {
+  text-align: center;
+  padding: 20px;
+  color: $text-color;
+  font-family: 'Georgia', serif;
+}
+
+// Order list styling
+ion-list {
+  background: transparent;
+}
+
+ion-card {
+  @include vintage-border;
+  background: $card-background;
+  margin: 16px;
+  
+  // Card header
+  ion-card-header {
+    background: $primary-color;
+    padding: 16px;
+
+    ion-card-title {
+      color: $light-text-color;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3em;
+    }
+
+    ion-card-subtitle {
+      color: $secondary-color;
+      font-family: 'Georgia', serif;
+    }
+  }
+
+  // Card content
+  ion-card-content {
+    padding: 16px;
+    font-family: 'Georgia', serif;
+    color: $text-color;
+
+    .order-details {
+      h3 {
+        color: $primary-color;
+        font-family: 'Playfair Display', serif;
+        border-bottom: 1px solid $accent-color;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+
+      .order-item {
+        margin-bottom: 8px;
+        color: $text-color;
+      }
+
+      .order-total {
+        margin-top: 12px;
+        padding-top: 8px;
+        border-top: 1px solid $accent-color;
+        text-align: right;
+        font-size: 1.1em;
+        color: $primary-color;
+      }
+
+      .order-payment-method {
+        margin-top: 8px;
+        color: $text-color;
+        font-style: italic;
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+ion-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+// Responsive design
+@media (min-width: 768px) {
+  ion-content {
+    display: flex;
+    justify-content: center;
+  }
+
+  ion-list {
+    width: 100%;
+    max-width: 800px;
+  }
+}

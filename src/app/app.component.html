@@ -37,6 +37,12 @@
             <ion-label>Carrito</ion-label>
           </ion-item>
 
+          <!-- Nuevo ítem para Historial de Compras -->
+          <ion-item routerLink="/orders-history" routerDirection="root" (click)="closeMenu()">
+            <ion-icon name="receipt-outline" slot="start"></ion-icon>
+            <ion-label>Historial de Compras</ion-label>
+          </ion-item>
+
           <ion-item routerLink="/profile-edit" (click)="closeMenu()">
             <ion-icon name="person-outline" slot="start"></ion-icon>
             <ion-label>Editar Perfil</ion-label>
