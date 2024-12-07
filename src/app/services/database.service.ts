@@ -69,23 +69,22 @@ export class DatabaseService {
     private alertController: AlertController
   ) {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
-    this.platform.ready().then(() => {
-      this.initializeDatabase();
+    this.platform.ready().then(async () => {
+      try {
+        await this.initializeDatabase();
+      } catch (error) {
+        console.error('Error initializing database:', error);
+        this.presentAlert('Error', 'No se pudo inicializar la base de datos');
+      }
     });
   }
-
-  public getDatabaseState(): Observable<boolean> {
-    return this.dbReady.asObservable();
-  }
-
-  
 
   private async initializeDatabase(): Promise<void> {
     try {
       if (Capacitor.getPlatform() === 'web') {
         await this.sqlite.initWebStore();
       }
-  
+
       await this.sqlite.closeAllConnections();
       
       let db: SQLiteDBConnection;
@@ -102,12 +101,18 @@ export class DatabaseService {
         console.log('Error creating connection, trying to retrieve existing one:', error);
         db = await this.sqlite.retrieveConnection(this.dbName, false);
       }
-  
+
       await db.open();
       this.database = db;
       
-      // Crear tablas y asegurar datos iniciales
+      // Asegurar estructura y datos iniciales
       await this.ensureDatabaseStructure();
+      
+      // Verificar si necesitamos datos iniciales
+      const hasData = await this.checkTablesAndData();
+      if (!hasData) {
+        await this.insertSeedData().toPromise();
+      }
       
       this.dbReady.next(true);
       console.log('Database initialized successfully');
@@ -120,18 +125,44 @@ export class DatabaseService {
 
   private async ensureDatabaseStructure(): Promise<void> {
     try {
-      // Crear tablas principales si no existen
-      await this.database.execute(this.tableUsers);
-      await this.database.execute(this.tableVinyls);
-      await this.database.execute(this.tableOrders);
-  
-      // Ejecutar migraciones específicas de columnas o ajustes necesarios
+      // Verificar si las tablas existen
+      const tablesExist = await this.checkTablesExist();
+      
+      if (!tablesExist) {
+        // Crear tablas principales
+        await this.database.execute(this.tableUsers);
+        await this.database.execute(this.tableVinyls);
+        await this.database.execute(this.tableOrders);
+        await this.database.execute(this.tableCart);
+        
+        // Crear admin por defecto
+        await this.createAdminIfNotExists();
+      }
+      
+      // Ejecutar migraciones
       await this.runMigrations();
-  
-      console.log("Database structure ensured.");
+      
+      console.log("Database structure ensured successfully");
     } catch (error) {
       console.error("Error ensuring database structure:", error);
       throw error;
+    }
+  }
+
+  private async checkTablesAndData(): Promise<boolean> {
+    try {
+      const result = await this.database.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM Users) as userCount,
+          (SELECT COUNT(*) FROM Vinyls) as vinylCount,
+          (SELECT COUNT(*) FROM Orders) as orderCount
+      `);
+      
+      const counts = result.values?.[0];
+      return counts?.userCount > 0 && counts?.vinylCount > 0;
+    } catch (error) {
+      console.error('Error checking tables and data:', error);
+      return false;
     }
   }
   
@@ -168,25 +199,6 @@ export class DatabaseService {
       return false;
     }
   }
-
-  private async checkTablesAndData(): Promise<boolean> {
-    try {
-      const tablesExist = await this.checkTablesExist();
-      if (!tablesExist) return false;
-  
-      const result = await this.database.query(`
-        SELECT 
-          (SELECT COUNT(*) FROM Users) as userCount,
-          (SELECT COUNT(*) FROM Vinyls) as vinylCount
-      `);
-  
-      const counts = result.values?.[0];
-      return (counts?.userCount > 0 && counts?.vinylCount > 0);
-    } catch (error) {
-      console.error('Error checking tables and data:', error);
-      return false;
-    }
-  }  
 
   private async createTables(): Promise<void> {
     try {
@@ -328,6 +340,12 @@ CREATE TABLE IF NOT EXISTS Orders (
         throw error;
       })
     );
+  }
+
+  
+
+  public getDatabaseState(): Observable<boolean> {
+    return this.dbReady.asObservable();
   }
 
   registerUser(userData: RegisterUserData): Observable<any> {

@@ -5,7 +5,6 @@ import { DatabaseService } from '../services/database.service';
 import { NavController } from '@ionic/angular';
 import { ToastController } from '@ionic/angular';
 
-// Define a more specific interface for order items
 interface VinylItem {
   id: number;
   titulo: string;

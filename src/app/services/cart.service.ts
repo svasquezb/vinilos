@@ -19,13 +19,12 @@ export interface CartVinyl {
   quantity: number;
 }
 
-
 @Injectable({
   providedIn: 'root'
 })
 export class CartService {
   private currentUserId: number | null = null;
-  private cart: CartVinyl[] = []; // Cambia any[] por CartVinyl[]
+  private cart: CartVinyl[] = [];
   private cartSubject = new BehaviorSubject<CartVinyl[]>([]);
   private isAuthenticated = false;
 
@@ -34,14 +33,18 @@ export class CartService {
     private toastController: ToastController,
     private navCtrl: NavController
   ) {
+    // Escuchar cambios en la sesión del usuario
     this.databaseService.getActiveSession().subscribe(user => {
       if (user) {
+        // Si hay un nuevo usuario activo
         if (this.currentUserId !== user.id) {
           this.currentUserId = user.id;
           this.isAuthenticated = true;
+          // Cargar el carrito específico del usuario
           this.loadUserCart();
         }
       } else {
+        // Si no hay usuario activo, limpiar el carrito
         this.currentUserId = null;
         this.isAuthenticated = false;
         this.cart = [];
@@ -52,11 +55,12 @@ export class CartService {
 
   private loadUserCart() {
     if (!this.currentUserId) return;
-  
+
     this.databaseService.getCartFromDatabase(this.currentUserId)
       .pipe(take(1))
       .subscribe({
         next: (cartItems) => {
+          // Actualizar el carrito con los items del usuario actual
           this.cart = cartItems;
           this.cartSubject.next(this.cart);
         },
@@ -117,8 +121,9 @@ export class CartService {
         });
       }
 
+      // Guardar el carrito actualizado en la base de datos
       await this.saveCart().toPromise();
-      this.cartSubject.next(this.cart);
+      this.cartSubject.next([...this.cart]); // Emitir una nueva copia del carrito
       
       const toast = await this.toastController.create({
         message: 'Producto agregado al carrito',
@@ -132,7 +137,7 @@ export class CartService {
       console.error('Error adding to cart:', error);
       const toast = await this.toastController.create({
         message: 'Error al agregar al carrito',
-        duration: 2000, 
+        duration: 2000,
         position: 'bottom',
         color: 'danger'
       });
@@ -151,9 +156,10 @@ export class CartService {
     
     this.cart = this.cart.filter(item => item.vinyl.id !== vinylId);
     
+    // Guardar el carrito actualizado en la base de datos
     await this.saveCart().toPromise();
     
-    this.cartSubject.next(this.cart);
+    this.cartSubject.next([...this.cart]); // Emitir una nueva copia del carrito
   }
 
   async clearCart() {
@@ -161,9 +167,10 @@ export class CartService {
     
     this.cart = [];
     
+    // Guardar el carrito vacío en la base de datos
     await this.saveCart().toPromise();
     
-    this.cartSubject.next(this.cart);
+    this.cartSubject.next([]); // Emitir carrito vacío
   }
 
   getTotal(): number {
@@ -176,5 +183,20 @@ export class CartService {
 
   isUserAuthenticated(): boolean {
     return this.isAuthenticated;
+  }
+
+  // Método para sincronizar el carrito cuando el usuario inicia sesión
+  syncCartWithUser(userId: number): Observable<boolean> {
+    return this.databaseService.getCartFromDatabase(userId).pipe(
+      switchMap(cartItems => {
+        this.cart = cartItems;
+        this.cartSubject.next(this.cart);
+        return this.saveCart();
+      }),
+      catchError(error => {
+        console.error('Error syncing cart:', error);
+        return of(false);
+      })
+    );
   }
 }
