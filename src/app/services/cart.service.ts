@@ -33,18 +33,30 @@ export class CartService {
     private toastController: ToastController,
     private navCtrl: NavController
   ) {
+    // Cargar el carrito guardado al iniciar el servicio
+    this.loadSavedCart();
+
     // Escuchar cambios en la sesión del usuario
     this.databaseService.getActiveSession().subscribe(user => {
       if (user) {
-        // Si hay un nuevo usuario activo
         if (this.currentUserId !== user.id) {
+          const previousUserId = this.currentUserId;
           this.currentUserId = user.id;
           this.isAuthenticated = true;
-          // Cargar el carrito específico del usuario
+          
+          // Si había un usuario anterior, guardar su carrito antes de cambiar
+          if (previousUserId) {
+            this.saveCartToLocalStorage(previousUserId, this.cart);
+          }
+          
+          // Cargar el carrito del nuevo usuario
           this.loadUserCart();
         }
       } else {
-        // Si no hay usuario activo, limpiar el carrito
+        // Si se cierra sesión, guardar el carrito actual
+        if (this.currentUserId) {
+          this.saveCartToLocalStorage(this.currentUserId, this.cart);
+        }
         this.currentUserId = null;
         this.isAuthenticated = false;
         this.cart = [];
@@ -53,23 +65,75 @@ export class CartService {
     });
   }
 
+  private loadSavedCart() {
+    const savedUserId = localStorage.getItem('lastUserId');
+    if (savedUserId) {
+      const savedCart = this.getCartFromLocalStorage(parseInt(savedUserId));
+      if (savedCart) {
+        this.cart = savedCart;
+        this.cartSubject.next(this.cart);
+      }
+    }
+  }
+
+  private saveCartToLocalStorage(userId: number, cart: CartVinyl[]) {
+    localStorage.setItem(`cart_${userId}`, JSON.stringify(cart));
+    localStorage.setItem('lastUserId', userId.toString());
+  }
+
+  private getCartFromLocalStorage(userId: number): CartVinyl[] | null {
+    const savedCart = localStorage.getItem(`cart_${userId}`);
+    return savedCart ? JSON.parse(savedCart) : null;
+  }
+
   private loadUserCart() {
     if (!this.currentUserId) return;
 
+    // Primero intentar cargar desde localStorage
+    const savedCart = this.getCartFromLocalStorage(this.currentUserId);
+    if (savedCart) {
+      this.cart = savedCart;
+      this.cartSubject.next(this.cart);
+    }
+
+    // Luego sincronizar con la base de datos
     this.databaseService.getCartFromDatabase(this.currentUserId)
       .pipe(take(1))
       .subscribe({
         next: (cartItems) => {
-          // Actualizar el carrito con los items del usuario actual
-          this.cart = cartItems;
+          // Combinar items del localStorage con los de la base de datos
+          this.cart = this.mergeCartItems(savedCart || [], cartItems);
           this.cartSubject.next(this.cart);
+          // Guardar el carrito combinado
+          this.saveCart().subscribe();
         },
         error: (error) => {
           console.error('Error al cargar el carrito:', error);
-          this.cart = [];
-          this.cartSubject.next([]);
+          if (!savedCart) {
+            this.cart = [];
+            this.cartSubject.next([]);
+          }
         }
       });
+  }
+
+  private mergeCartItems(localCart: CartVinyl[], dbCart: CartVinyl[]): CartVinyl[] {
+    const mergedCart: CartVinyl[] = [...localCart];
+    
+    dbCart.forEach(dbItem => {
+      const existingIndex = mergedCart.findIndex(item => item.vinyl.id === dbItem.vinyl.id);
+      if (existingIndex === -1) {
+        mergedCart.push(dbItem);
+      } else {
+        // Usar la cantidad más alta entre local y DB
+        mergedCart[existingIndex].quantity = Math.max(
+          mergedCart[existingIndex].quantity,
+          dbItem.quantity
+        );
+      }
+    });
+
+    return mergedCart;
   }
 
   getCart(): Observable<CartVinyl[]> {
@@ -121,9 +185,9 @@ export class CartService {
         });
       }
 
-      // Guardar el carrito actualizado en la base de datos
+      // Guardar el carrito actualizado
       await this.saveCart().toPromise();
-      this.cartSubject.next([...this.cart]); // Emitir una nueva copia del carrito
+      this.cartSubject.next([...this.cart]);
       
       const toast = await this.toastController.create({
         message: 'Producto agregado al carrito',
@@ -148,6 +212,9 @@ export class CartService {
 
   saveCart(): Observable<boolean> {
     if (!this.currentUserId) return of(false);
+    
+    // Guardar tanto en localStorage como en la base de datos
+    this.saveCartToLocalStorage(this.currentUserId, this.cart);
     return this.databaseService.saveCartToDatabase(this.currentUserId, this.cart);
   }
 
@@ -156,10 +223,9 @@ export class CartService {
     
     this.cart = this.cart.filter(item => item.vinyl.id !== vinylId);
     
-    // Guardar el carrito actualizado en la base de datos
+    // Guardar el carrito actualizado
     await this.saveCart().toPromise();
-    
-    this.cartSubject.next([...this.cart]); // Emitir una nueva copia del carrito
+    this.cartSubject.next([...this.cart]);
   }
 
   async clearCart() {
@@ -167,10 +233,9 @@ export class CartService {
     
     this.cart = [];
     
-    // Guardar el carrito vacío en la base de datos
+    // Guardar el carrito vacío
     await this.saveCart().toPromise();
-    
-    this.cartSubject.next([]); // Emitir carrito vacío
+    this.cartSubject.next([]);
   }
 
   getTotal(): number {
@@ -185,11 +250,11 @@ export class CartService {
     return this.isAuthenticated;
   }
 
-  // Método para sincronizar el carrito cuando el usuario inicia sesión
   syncCartWithUser(userId: number): Observable<boolean> {
     return this.databaseService.getCartFromDatabase(userId).pipe(
       switchMap(cartItems => {
-        this.cart = cartItems;
+        const savedCart = this.getCartFromLocalStorage(userId);
+        this.cart = this.mergeCartItems(savedCart || [], cartItems);
         this.cartSubject.next(this.cart);
         return this.saveCart();
       }),
@@ -198,5 +263,32 @@ export class CartService {
         return of(false);
       })
     );
+  }
+
+  async updateCartItemQuantity(vinylId: number, newQuantity: number): Promise<boolean> {
+    const itemIndex = this.cart.findIndex(item => item.vinyl.id === vinylId);
+    if (itemIndex === -1) return false;
+
+    const item = this.cart[itemIndex];
+    if (newQuantity > item.vinyl.stock) {
+      const toast = await this.toastController.create({
+        message: 'Stock insuficiente',
+        duration: 2000,
+        position: 'bottom',
+        color: 'warning'
+      });
+      await toast.present();
+      return false;
+    }
+
+    if (newQuantity <= 0) {
+      await this.removeFromCart(vinylId);
+    } else {
+      this.cart[itemIndex].quantity = newQuantity;
+      await this.saveCart().toPromise();
+      this.cartSubject.next([...this.cart]);
+    }
+
+    return true;
   }
 }
